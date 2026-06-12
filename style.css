@@ -304,6 +304,70 @@ main{max-width:640px;margin:0 auto}
 .team-opt span{font-size:10.5px;font-weight:800;text-align:center;line-height:1.2}
 .team-opt.picked{background:var(--card);border-color:var(--ink);box-shadow:var(--shadow)}
 
+/* ---------- favourites: confirm + calendar ---------- */
+.confirm-btn{
+  grid-column:1/-1;margin-top:10px;padding:16px;border-radius:18px;
+  background:var(--ink);color:var(--bg);font-weight:800;font-size:14px;
+  letter-spacing:.4px;box-shadow:0 8px 22px rgba(21,19,14,.28);
+  transition:transform .35s var(--spring),opacity .3s;
+}
+.confirm-btn:active{transform:scale(.97)}
+.confirm-btn:disabled{opacity:.35;box-shadow:none}
+.team-opt.picked{border-color:var(--tc,var(--ink))}
+
+.cal-wrap{grid-column:1/-1;display:flex;flex-direction:column;gap:12px}
+.cal-bar{display:flex;align-items:center;justify-content:space-between}
+.cal-month{
+  display:flex;align-items:center;gap:6px;background:var(--card);border-radius:999px;
+  padding:6px 8px;box-shadow:var(--shadow);
+  font-family:"Anton",sans-serif;font-size:16px;text-transform:uppercase;letter-spacing:.5px;
+}
+.cal-month span{padding:0 6px}
+.cal-nav{
+  width:28px;height:28px;border-radius:50%;background:#F3EEDF;font-size:16px;font-weight:800;
+  display:grid;place-items:center;transition:transform .3s var(--spring);
+}
+.cal-nav:active{transform:scale(.85)}
+.cal-nav:disabled{opacity:.3}
+.cal-edit{
+  font-size:12px;font-weight:800;color:var(--ink);background:var(--card);
+  padding:9px 14px;border-radius:999px;box-shadow:var(--shadow);
+  transition:transform .3s var(--spring);
+}
+.cal-edit:active{transform:scale(.94)}
+.cal-legend{display:flex;flex-wrap:wrap;gap:6px}
+.cal-team{
+  display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;
+  background:var(--card);border-radius:999px;padding:5px 11px 5px 6px;box-shadow:var(--shadow);
+  border-left:4px solid var(--tc);
+}
+.cal-team img{width:18px;height:18px;border-radius:50%}
+.cal-card{
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:16px 12px 14px;animation:rise .5s var(--spring) both;
+}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;justify-items:center}
+.cal-head{margin-bottom:8px}
+.cal-head span{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--ink-soft)}
+.cal-day{
+  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:#F3EEDF;font-size:13.5px;font-weight:700;
+  transition:transform .35s var(--spring),box-shadow .3s;
+}
+.cal-day:active{transform:scale(.88)}
+.cal-day.off{
+  background:repeating-linear-gradient(135deg,#EFE9D8 0 4px,#E4DCC6 4px 8px);
+  pointer-events:none;
+}
+.cal-day.off i{font-style:normal;opacity:.35}
+.cal-day.has{color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(21,19,14,.18)}
+.cal-day.today{box-shadow:0 0 0 2.5px var(--bg),0 0 0 5px var(--ink)}
+.cal-day.sel{transform:scale(1.12);box-shadow:0 0 0 2.5px var(--bg),0 0 0 5px var(--ink),0 8px 18px rgba(21,19,14,.25)}
+.cal-hint{
+  text-align:center;font-size:12px;font-weight:600;color:var(--ink-soft);padding:14px 0 4px;
+}
+.cal-matches{display:flex;flex-direction:column;gap:14px}
+
 /* ---------- squad sheet (retro sticker album) ---------- */
 .squad-backdrop{
   position:fixed;inset:0;z-index:60;background:rgba(21,19,14,.45);

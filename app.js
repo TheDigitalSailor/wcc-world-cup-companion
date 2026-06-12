@@ -18,6 +18,22 @@ const FLAG = {
   "England":"gb-eng","Croatia":"hr","Ghana":"gh","Panama":"pa"
 };
 
+// team name -> signature colour taken from the flag
+const TEAM_COLOR = {
+  "Mexico":"#006847","South Africa":"#007A4D","Korea Republic":"#CD2E3A","Czechia":"#11457E",
+  "Canada":"#D80621","Bosnia and Herzegovina":"#FECB00","Qatar":"#8A1538","Switzerland":"#DA291C",
+  "Brazil":"#009739","Morocco":"#C1272D","Haiti":"#00209F","Scotland":"#005EB8",
+  "USA":"#3C3B6E","Paraguay":"#D52B1E","Australia":"#FFCD00","Türkiye":"#E30A17",
+  "Germany":"#E1001F","Curaçao":"#002B7F","Côte d'Ivoire":"#FF8200","Ecuador":"#FFD100",
+  "Netherlands":"#FF7900","Japan":"#BC002D","Sweden":"#006AA7","Tunisia":"#E70013",
+  "Belgium":"#ED2939","Egypt":"#CE1126","IR Iran":"#239F40","New Zealand":"#012169",
+  "Spain":"#F1BF00","Cabo Verde":"#003893","Saudi Arabia":"#006C35","Uruguay":"#55B5E5",
+  "France":"#002395","Senegal":"#00853F","Iraq":"#007A3D","Norway":"#BA0C2F",
+  "Argentina":"#75AADB","Algeria":"#006233","Austria":"#ED2939","Jordan":"#CE1126",
+  "Portugal":"#E42518","Congo DR":"#0085CA","Uzbekistan":"#0099B5","Colombia":"#FCD116",
+  "England":"#CF081F","Croatia":"#ED1C24","Ghana":"#006B3F","Panama":"#005293"
+};
+
 // Portugal free-to-air confirmed matches (matchNumber -> channel)
 const PT_FTA = { 1:"TVI", 17:"RTP", 23:"SIC", 26:"RTP", 47:"TVI", 71:"RTP", 104:"RTP" };
 
@@ -278,18 +294,26 @@ function renderBracket() {
     </div>`).join("");
 }
 
-/* ================= FAVOURITES PAGE ================= */
+/* ================= FAVOURITES PAGE (picker + calendar) ================= */
 
 function renderFavsPage() {
+  if (state.favs.length && state.favMode !== "edit") renderFavCalendar();
+  else renderFavPicker();
+}
+
+function renderFavPicker() {
   $("#favHint").textContent = state.favs.length
-    ? `${state.favs.length} team${state.favs.length > 1 ? "s" : ""} picked — their matches are starred across the app.`
+    ? `${state.favs.length} team${state.favs.length > 1 ? "s" : ""} picked.`
     : "Tap teams to follow them. Pick as many as you like.";
   const grid = $("#teamGrid");
   grid.innerHTML = Object.keys(FLAG).sort().map(t => `
-    <button class="team-opt ${isFavTeam(t) ? "picked" : ""}" data-team="${t}">
+    <button class="team-opt ${isFavTeam(t) ? "picked" : ""}" data-team="${t}" style="--tc:${TEAM_COLOR[t]}">
       <img src="${flagUrl(t)}" alt="" loading="lazy">
       <span>${t}</span>
-    </button>`).join("");
+    </button>`).join("") + `
+    <button class="confirm-btn" id="confirmFavs" ${state.favs.length ? "" : "disabled"}>
+      Confirm · view calendar
+    </button>`;
   grid.querySelectorAll(".team-opt").forEach(btn =>
     btn.addEventListener("click", () => {
       const t = btn.dataset.team;
@@ -297,11 +321,97 @@ function renderFavsPage() {
       saveFavs();
       btn.classList.toggle("picked");
       renderFavMeta();
+      $("#confirmFavs").disabled = !state.favs.length;
       $("#favHint").textContent = state.favs.length
-        ? `${state.favs.length} team${state.favs.length > 1 ? "s" : ""} picked — their matches are starred across the app.`
+        ? `${state.favs.length} team${state.favs.length > 1 ? "s" : ""} picked.`
         : "Tap teams to follow them. Pick as many as you like.";
     })
   );
+  $("#confirmFavs").addEventListener("click", () => {
+    state.favMode = "cal";
+    render();
+  });
+}
+
+/* ---- calendar ---- */
+const MONTHS = [{ y: 2026, mo: 5, name: "June" }, { y: 2026, mo: 6, name: "July" }];
+const pad2 = (n) => String(n).padStart(2, "0");
+
+function favDayMap() {
+  const map = new Map(); // dayKey -> [{m,p}]
+  for (const d of matchDays()) {
+    const favs = d.matches.filter(x => isFavMatch(x.m));
+    if (favs.length) map.set(d.key, favs);
+  }
+  return map;
+}
+
+function dayBg(entries) {
+  const colors = [...new Set(entries.flatMap(({ m }) =>
+    [m.HomeTeam, m.AwayTeam].filter(isFavTeam).map(t => TEAM_COLOR[t])))];
+  if (colors.length === 1) return colors[0];
+  const step = 100 / colors.length;
+  return `linear-gradient(135deg, ${colors.map((c, i) =>
+    `${c} ${i * step}% ${(i + 1) * step}%`).join(", ")})`;
+}
+
+function renderFavCalendar() {
+  if (state.calMonth === undefined) {
+    state.calMonth = todayKey() >= "2026-07-01" ? 1 : 0;
+  }
+  const { y, mo, name } = MONTHS[state.calMonth];
+  const favDays = favDayMap();
+  const tk = todayKey();
+  const first = new Date(Date.UTC(y, mo, 1)).getUTCDay(); // 0 = Sunday
+  const nDays = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+
+  let cells = "";
+  for (let i = 0; i < first; i++) cells += `<span class="cal-day off"></span>`;
+  for (let d = 1; d <= nDays; d++) {
+    const key = `${y}-${pad2(mo + 1)}-${pad2(d)}`;
+    const inCup = key >= "2026-06-11" && key <= "2026-07-19";
+    const entries = favDays.get(key);
+    if (!inCup) { cells += `<span class="cal-day off"><i>${d}</i></span>`; continue; }
+    cells += `<button class="cal-day ${entries ? "has" : ""} ${key === tk ? "today" : ""} ${key === state.calSel ? "sel" : ""}"
+      data-cal="${key}" ${entries ? `style="background:${dayBg(entries)}"` : ""}>${d}</button>`;
+  }
+
+  const legend = state.favs.map(t => `
+    <span class="cal-team" style="--tc:${TEAM_COLOR[t]}">
+      <img src="${flagUrl(t)}" alt=""><b>${t}</b>
+    </span>`).join("");
+
+  const sel = state.calSel && favDays.get(state.calSel);
+  const selHtml = sel
+    ? sel.sort((a, b) => a.p.ts - b.p.ts).map(matchCard).join("")
+    : state.calSel
+      ? `<div class="empty">No favourite matches this day.</div>`
+      : `<div class="cal-hint">Tap a coloured day to see the match.</div>`;
+
+  $("#favHint").textContent = "";
+  $("#teamGrid").innerHTML = `
+    <div class="cal-wrap">
+      <div class="cal-bar">
+        <div class="cal-month">
+          <button class="cal-nav" data-calnav="-1" ${state.calMonth === 0 ? "disabled" : ""}>‹</button>
+          <span>${name}</span>
+          <button class="cal-nav" data-calnav="1" ${state.calMonth === 1 ? "disabled" : ""}>›</button>
+        </div>
+        <button class="cal-edit" id="editFavs">Edit teams</button>
+      </div>
+      <div class="cal-legend">${legend}</div>
+      <div class="cal-card">
+        <div class="cal-grid cal-head">${["S","M","T","W","T","F","S"].map(d => `<span>${d}</span>`).join("")}</div>
+        <div class="cal-grid">${cells}</div>
+      </div>
+      <div class="cal-matches">${selHtml}</div>
+    </div>`;
+
+  $("#editFavs").addEventListener("click", () => { state.favMode = "edit"; render(); });
+  document.querySelectorAll("[data-calnav]").forEach(b =>
+    b.addEventListener("click", () => { state.calMonth += +b.dataset.calnav; state.calSel = null; render(); }));
+  document.querySelectorAll("[data-cal]").forEach(b =>
+    b.addEventListener("click", () => { state.calSel = b.dataset.cal; render(); }));
 }
 
 function renderFavMeta() {
@@ -458,6 +568,8 @@ document.querySelectorAll(".tab").forEach(b =>
 );
 $("#clearFav").addEventListener("click", () => {
   state.favs = [];
+  state.favMode = "edit";
+  state.calSel = null;
   saveFavs();
   render();
 });
