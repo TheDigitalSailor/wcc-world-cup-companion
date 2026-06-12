@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F6F1E5">
+<title>WCC — World Cup Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="retro-badge">
+      <span class="retro-26">26</span>
+    </div>
+    <div class="brand-text">
+      <h1>WCC</h1>
+      <p>World Cup Companion</p>
+    </div>
+  </div>
+  <div class="seg" id="countrySeg" role="tablist" aria-label="Where are you watching from?">
+    <div class="seg-thumb" id="segThumb"></div>
+    <button class="seg-btn" data-country="PT" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/pt.svg" alt=""> PT</button>
+    <button class="seg-btn" data-country="NL" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/nl.svg" alt=""> NL</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ SCHEDULE ============ -->
+  <section class="page" id="page-schedule">
+    <button class="fav-banner" id="favBanner" hidden></button>
+    <nav class="datestrip-wrap">
+      <div class="datestrip" id="datestrip"></div>
+    </nav>
+    <div class="page-pad">
+      <div class="day-head">
+        <h2 id="dayTitle"></h2>
+        <span class="day-count" id="dayCount"></span>
+      </div>
+      <section class="matches" id="matchList"></section>
+      <footer class="foot">
+        <p id="footNote"></p>
+        <p class="foot-credit">Fixtures &amp; live scores: fixturedownload.com · Flags: circle-flags</p>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ============ STANDINGS ============ -->
+  <section class="page" id="page-standings" hidden>
+    <div class="page-pad">
+      <div class="page-head"><h2>Standings</h2><span class="day-count">12 groups</span></div>
+      <div class="groups" id="groupList"></div>
+    </div>
+  </section>
+
+  <!-- ============ BRACKET ============ -->
+  <section class="page" id="page-bracket" hidden>
+    <div class="page-head page-pad"><h2>Knockouts</h2><span class="day-count">Road to the final</span></div>
+    <div class="bracket" id="bracket"></div>
+  </section>
+
+  <!-- ============ FAVOURITES ============ -->
+  <section class="page" id="page-favs" hidden>
+    <div class="page-pad">
+      <div class="page-head">
+        <h2>Favourites</h2>
+        <button class="sheet-clear" id="clearFav">Clear all</button>
+      </div>
+      <p class="fav-hint" id="favHint"></p>
+      <div class="team-grid" id="teamGrid"></div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab on" data-page="schedule">
+    <svg viewBox="0 0 24 24"><rect x="3.2" y="4.5" width="17.6" height="16" rx="4"/><path d="M3.2 9.5h17.6M8 2.8v3.4M16 2.8v3.4" /></svg>
+    <span>Matches</span>
+  </button>
+  <button class="tab" data-page="standings">
+    <svg viewBox="0 0 24 24"><path d="M9 20.5v-9.2a1.3 1.3 0 0 1 1.3-1.3h3.4a1.3 1.3 0 0 1 1.3 1.3v9.2M9 20.5H4.5a1.3 1.3 0 0 1-1.3-1.3v-3.4a1.3 1.3 0 0 1 1.3-1.3H9m6 6h4.5a1.3 1.3 0 0 0 1.3-1.3v-5.4a1.3 1.3 0 0 0-1.3-1.3H15m-3-6.7v-3" /></svg>
+    <span>Groups</span>
+  </button>
+  <button class="tab" data-page="bracket">
+    <svg viewBox="0 0 24 24"><path d="M3.5 5h4.8v5H3.5zM3.5 14h4.8v5H3.5zM15.7 9.5h4.8v5h-4.8zM8.3 7.5h3.2v9H8.3zM11.5 12h4.2" /></svg>
+    <span>Bracket</span>
+  </button>
+  <button class="tab" data-page="favs">
+    <svg viewBox="0 0 24 24"><path d="M12 3.6l2.5 5.1 5.6.8-4 4 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4-4 5.6-.8z"/></svg>
+    <span>Teams</span>
+    <em class="tab-badge" id="favCount" hidden></em>
+  </button>
+</nav>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
