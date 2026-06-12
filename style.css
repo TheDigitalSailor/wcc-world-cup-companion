@@ -304,7 +304,88 @@ main{max-width:640px;margin:0 auto}
 .team-opt span{font-size:10.5px;font-weight:800;text-align:center;line-height:1.2}
 .team-opt.picked{background:var(--card);border-color:var(--ink);box-shadow:var(--shadow)}
 
+/* ---------- squad sheet (retro sticker album) ---------- */
+.squad-backdrop{
+  position:fixed;inset:0;z-index:60;background:rgba(21,19,14,.45);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  opacity:0;transition:opacity .35s;
+}
+.squad-backdrop.show{opacity:1}
+.squad-sheet{
+  position:fixed;left:0;right:0;bottom:0;top:max(28px, env(safe-area-inset-top));z-index:70;
+  max-width:640px;margin:0 auto;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--bg);border-radius:26px 26px 0 0;
+  box-shadow:0 -12px 48px rgba(21,19,14,.4);
+  transform:translateY(104%);transition:transform .55s var(--spring);
+}
+.squad-sheet.show{transform:none}
+.squad-inner{padding-bottom:32px}
+.squad-hero{
+  position:relative;background:var(--ink);color:var(--bg);
+  border-radius:26px 26px 24px 24px;padding:30px 20px 24px;text-align:center;
+  background-image:
+    radial-gradient(circle at 12% -40%, rgba(255,59,47,.35), transparent 45%),
+    radial-gradient(circle at 88% -40%, rgba(42,79,228,.4), transparent 45%);
+}
+.squad-close{
+  position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;
+  background:rgba(246,241,229,.14);color:var(--bg);font-size:14px;font-weight:800;
+  transition:transform .3s var(--spring);
+}
+.squad-close:active{transform:scale(.85)}
+.squad-flag{
+  width:64px;height:64px;border-radius:50%;margin:0 auto 12px;
+  box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--red),0 10px 24px rgba(0,0,0,.4);
+}
+.squad-title{font-family:"Anton",sans-serif;font-size:34px;text-transform:uppercase;letter-spacing:1px}
+.squad-sub{font-size:10.5px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;opacity:.55;margin-top:4px}
+.squad-pos{
+  display:flex;align-items:center;gap:8px;margin:22px 18px 10px;
+  font-family:"Anton",sans-serif;font-size:17px;text-transform:uppercase;letter-spacing:.5px;
+}
+.squad-pos em{
+  font-style:normal;font-family:"Archivo",sans-serif;font-size:10px;font-weight:800;
+  background:var(--ink);color:var(--bg);border-radius:99px;padding:2px 8px;
+}
+.pl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 18px}
+.pl-card{
+  background:var(--card);border:2px solid var(--ink);border-radius:12px;
+  box-shadow:3px 3px 0 var(--ink);padding:7px 7px 9px;text-align:center;
+  animation:rise .45s var(--spring) both;
+  transition:transform .3s var(--spring);
+}
+.pl-card:active{transform:scale(.95)}
+.pl-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.pl-num{font-family:"Anton",sans-serif;font-size:15px}
+.pl-pos{font-size:8px;font-weight:800;letter-spacing:1px;background:#F3EEDF;border-radius:99px;padding:2px 7px;color:var(--ink-soft)}
+.pl-photo{
+  height:62px;border-radius:8px;display:grid;place-items:center;margin-bottom:7px;
+  background:
+    linear-gradient(180deg,transparent 58%,rgba(21,19,14,.06) 58%),
+    linear-gradient(100deg,var(--red) 0 18%,var(--bg) 18% 22%,var(--blue) 22% 40%,var(--bg) 40% 44%,var(--green) 44% 62%,var(--bg) 62% 100%);
+}
+.pl-mono{
+  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:var(--ink);color:var(--bg);
+  font-family:"Anton",sans-serif;font-size:15px;letter-spacing:.5px;
+  box-shadow:0 0 0 2.5px var(--bg);
+}
+.pl-name{
+  font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.2px;line-height:1.2;
+  min-height:25px;display:flex;align-items:center;justify-content:center;
+  border-top:1.5px solid var(--ink);padding-top:5px;
+}
+.pl-club{
+  display:flex;align-items:center;justify-content:center;gap:4px;margin-top:3px;
+  font-size:9px;font-weight:700;color:var(--ink-soft);
+}
+.pl-club img{width:11px;height:11px;border-radius:50%}
+.pl-club span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+.pl-meta{font-size:8px;font-weight:700;color:var(--ink-soft);opacity:.8;margin-top:3px;letter-spacing:.3px}
+.squad-src{margin:26px 18px 0;font-size:10.5px;font-weight:600;color:var(--ink-soft);text-align:center}
+
 @media (min-width:480px){
+  .pl-grid{grid-template-columns:repeat(4,1fr)}
   .team-grid{grid-template-columns:repeat(6,1fr)}
   .team .flag{width:52px;height:52px}
 }

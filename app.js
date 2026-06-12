@@ -149,9 +149,9 @@ function matchCard({ m, p }, i) {
   <article class="match-card ${isFavMatch(m) ? "fav" : ""}" style="animation-delay:${Math.min(i * 60, 360)}ms">
     <div class="mc-top">${stageChip(m)}<span class="mc-venue">${m.Location.replace(" Stadium", "")}</span></div>
     <div class="mc-teams">
-      <div class="team">${flagHtml(m.HomeTeam)}<span class="t-name">${teamLabel(m.HomeTeam)}</span></div>
+      <div class="team" ${FLAG[m.HomeTeam] ? `data-squad="${m.HomeTeam}"` : ""}>${flagHtml(m.HomeTeam)}<span class="t-name">${teamLabel(m.HomeTeam)}</span></div>
       <div class="mc-mid">${mid}</div>
-      <div class="team">${flagHtml(m.AwayTeam)}<span class="t-name">${teamLabel(m.AwayTeam)}</span></div>
+      <div class="team" ${FLAG[m.AwayTeam] ? `data-squad="${m.AwayTeam}"` : ""}>${flagHtml(m.AwayTeam)}<span class="t-name">${teamLabel(m.AwayTeam)}</span></div>
     </div>
     <div class="mc-watch">${watchChips(m)}</div>
   </article>`;
@@ -233,7 +233,7 @@ function renderStandings() {
       <div class="group-head"><span class="stage-chip g${g.letter}">Group ${g.letter}</span></div>
       <div class="g-row g-head-row"><span></span><span></span><span>P</span><span>+/-</span><span>Pts</span></div>
       ${g.rows.map((r, i) => `
-        <div class="g-row ${i < 2 ? "ql" : ""} ${isFavTeam(r.team) ? "favrow" : ""}">
+        <div class="g-row ${i < 2 ? "ql" : ""} ${isFavTeam(r.team) ? "favrow" : ""}" data-squad="${r.team}">
           <span class="g-pos">${i + 1}</span>
           <span class="g-team">${flagHtml(r.team, "g-flag")}<b>${r.team}</b>${isFavTeam(r.team) ? " ★" : ""}</span>
           <span>${r.P}</span>
@@ -309,6 +309,69 @@ function renderFavMeta() {
   badge.hidden = !state.favs.length;
   badge.textContent = state.favs.length;
 }
+
+/* ================= SQUAD SHEET ================= */
+
+const POS_LABEL = { GK: "Goalkeepers", DF: "Defenders", MF: "Midfielders", FW: "Forwards" };
+
+const initials = (name) => {
+  const w = name.split(" ").filter(Boolean);
+  return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : name.slice(0, 2)).toUpperCase();
+};
+
+function playerCard(p, i) {
+  return `
+  <div class="pl-card" style="animation-delay:${Math.min(i * 30, 500)}ms">
+    <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${p.p}</span></div>
+    <div class="pl-photo"><span class="pl-mono">${initials(p.name)}</span></div>
+    <div class="pl-name">${p.name}</div>
+    <div class="pl-club">
+      ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${p.cc}.svg" alt="">` : ""}
+      <span>${p.club || "—"}</span>
+    </div>
+    <div class="pl-meta">${p.a ?? "–"} yrs · ${p.c} caps${p.p !== "GK" ? ` · ${p.g} goals` : ""}</div>
+  </div>`;
+}
+
+function openSquad(team) {
+  const squad = typeof SQUADS !== "undefined" && SQUADS[team];
+  if (!squad) return;
+  let i = 0;
+  $("#squadInner").innerHTML = `
+    <div class="squad-hero">
+      <button class="squad-close" id="squadClose" aria-label="Close">✕</button>
+      <img class="squad-flag" src="${flagUrl(team)}" alt="">
+      <div class="squad-title">${team}</div>
+      <div class="squad-sub">Squad 26 · ${squad.length} players</div>
+    </div>
+    ${["GK", "DF", "MF", "FW"].map(pos => {
+      const ps = squad.filter(p => p.p === pos);
+      return ps.length ? `
+        <div class="squad-pos">${POS_LABEL[pos]}<em>${ps.length}</em></div>
+        <div class="pl-grid">${ps.map(p => playerCard(p, i++)).join("")}</div>` : "";
+    }).join("")}
+    <div class="squad-src">Squad data: Wikipedia · clubs as of the tournament squad lists</div>`;
+  $("#squadBackdrop").hidden = false;
+  $("#squadSheet").hidden = false;
+  $("#squadSheet").scrollTop = 0;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    $("#squadBackdrop").classList.add("show");
+    $("#squadSheet").classList.add("show");
+  }));
+  $("#squadClose").addEventListener("click", closeSquad);
+}
+function closeSquad() {
+  $("#squadBackdrop").classList.remove("show");
+  $("#squadSheet").classList.remove("show");
+  setTimeout(() => { $("#squadBackdrop").hidden = true; $("#squadSheet").hidden = true; }, 500);
+}
+
+// open from match cards and standings rows (event delegation)
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-squad]");
+  if (t) openSquad(t.dataset.squad);
+});
+$("#squadBackdrop") && $("#squadBackdrop").addEventListener("click", closeSquad);
 
 /* ================= TABS ================= */
 
