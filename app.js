@@ -429,9 +429,9 @@ const initials = (name) => {
   return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : name.slice(0, 2)).toUpperCase();
 };
 
-function playerCard(p, i) {
+function playerCard(p, i, team) {
   return `
-  <div class="pl-card" style="animation-delay:${Math.min(i * 30, 500)}ms">
+  <div class="pl-card" data-player="${team}|${p.n}|${p.name}" style="animation-delay:${Math.min(i * 30, 500)}ms">
     <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${p.p}</span></div>
     <div class="pl-photo"><span class="pl-mono">${initials(p.name)}</span></div>
     <div class="pl-name">${p.name}</div>
@@ -449,6 +449,7 @@ function openSquad(team) {
   let i = 0;
   $("#squadInner").innerHTML = `
     <div class="squad-hero">
+      <div class="squad-grab"></div>
       <button class="squad-close" id="squadClose" aria-label="Close">✕</button>
       <img class="squad-flag" src="${flagUrl(team)}" alt="">
       <div class="squad-title">${team}</div>
@@ -458,7 +459,7 @@ function openSquad(team) {
       const ps = squad.filter(p => p.p === pos);
       return ps.length ? `
         <div class="squad-pos">${POS_LABEL[pos]}<em>${ps.length}</em></div>
-        <div class="pl-grid">${ps.map(p => playerCard(p, i++)).join("")}</div>` : "";
+        <div class="pl-grid">${ps.map(p => playerCard(p, i++, team)).join("")}</div>` : "";
     }).join("")}
     <div class="squad-src">Squad data: Wikipedia · clubs as of the tournament squad lists</div>`;
   $("#squadBackdrop").hidden = false;
@@ -471,10 +472,112 @@ function openSquad(team) {
   $("#squadClose").addEventListener("click", closeSquad);
 }
 function closeSquad() {
+  $("#squadSheet").style.transform = "";
   $("#squadBackdrop").classList.remove("show");
   $("#squadSheet").classList.remove("show");
   setTimeout(() => { $("#squadBackdrop").hidden = true; $("#squadSheet").hidden = true; }, 500);
 }
+
+/* swipe-down to close (iOS-style: follows the finger, springs back under threshold) */
+function attachSwipeClose(el, closeFn, getScrollTop = () => el.scrollTop) {
+  let startY = 0, dy = 0, dragging = false;
+  el.addEventListener("touchstart", (e) => {
+    if (getScrollTop() > 0) return;
+    startY = e.touches[0].clientY;
+    dy = 0;
+    dragging = true;
+  }, { passive: true });
+  el.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy > 0) {
+      el.style.transition = "none";
+      el.style.transform = `translateY(${dy}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+  el.addEventListener("touchend", () => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.transition = "";
+    if (dy > 110) closeFn();
+    else el.style.transform = "";
+  });
+}
+attachSwipeClose($("#squadSheet"), closeSquad);
+
+/* ================= PLAYER MODAL ================= */
+
+function traits(p) {
+  const t = [];
+  const ratio = p.c ? p.g / p.c : 0;
+  const wc = (typeof WC_GOALS !== "undefined" && WC_GOALS[p.name]) || 0;
+  if (wc >= 2) t.push("On fire this World Cup");
+  if (p.p === "FW") t.push(ratio >= 0.5 ? "Absolute scorer" : ratio >= 0.3 ? "Clinical finisher" : "Livewire forward");
+  if (p.p === "MF") t.push(p.g >= 15 ? "Goalscoring midfielder" : p.c >= 60 ? "Midfield general" : "Engine room");
+  if (p.p === "DF") t.push(p.g >= 5 ? "Set-piece threat" : p.c >= 70 ? "Rock at the back" : "No-nonsense defender");
+  if (p.p === "GK") t.push(p.c >= 50 ? "Safe hands" : "Shot stopper");
+  if (p.c >= 100) t.push("Centurion");
+  if (p.a !== null && p.a <= 21) t.push("Wonderkid");
+  if (p.a !== null && p.a >= 35) t.push("Tournament veteran");
+  if (p.n === 10) t.push("Wears the 10");
+  if (p.n === 9 && p.p === "FW") t.push("Classic No. 9");
+  return [...new Set(t)].slice(0, 3);
+}
+
+const POS_FULL = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" };
+
+function openPlayer(team, num, name) {
+  const p = (SQUADS[team] || []).find(x => String(x.n) === String(num) && x.name === name);
+  if (!p) return;
+  const wc = (typeof WC_GOALS !== "undefined" && WC_GOALS[p.name]) || 0;
+  const color = TEAM_COLOR[team] || "#15130E";
+  $("#playerModal").innerHTML = `
+    <div class="pm-card" style="--tc:${color}">
+      <button class="squad-close pm-close" id="playerClose" aria-label="Close">✕</button>
+      <div class="pm-hero">
+        <span class="pm-num">${p.n || "–"}</span>
+        <div class="pm-mono">${initials(p.name)}</div>
+        <img class="pm-team" src="${flagUrl(team)}" alt="${team}">
+      </div>
+      <div class="pm-name">${p.name}</div>
+      <div class="pm-role">${POS_FULL[p.p]} · ${team}</div>
+      <div class="pm-club">
+        ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${p.cc}.svg" alt="">` : ""}
+        <span>${p.club || "Club unknown"}</span>
+      </div>
+      <div class="pm-stats">
+        <div class="pm-stat"><b>${p.a ?? "–"}</b><span>Age</span></div>
+        <div class="pm-stat"><b>${p.c}</b><span>Caps</span></div>
+        <div class="pm-stat"><b>${p.g}</b><span>NT goals</span></div>
+        <div class="pm-stat ${wc ? "hot" : ""}"><b>${wc}</b><span>WC26 goals</span></div>
+      </div>
+      <div class="pm-traits">${traits(p).map(t => `<span>${t}</span>`).join("")}</div>
+    </div>`;
+  $("#playerBackdrop").hidden = false;
+  $("#playerModal").hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    $("#playerBackdrop").classList.add("show");
+    $("#playerModal").classList.add("show");
+  }));
+  $("#playerClose").addEventListener("click", closePlayer);
+}
+function closePlayer() {
+  $("#playerModal").style.transform = "";
+  $("#playerBackdrop").classList.remove("show");
+  $("#playerModal").classList.remove("show");
+  setTimeout(() => { $("#playerBackdrop").hidden = true; $("#playerModal").hidden = true; }, 450);
+}
+$("#playerBackdrop").addEventListener("click", closePlayer);
+attachSwipeClose($("#playerModal"), closePlayer, () => 0);
+
+document.addEventListener("click", (e) => {
+  const card = e.target.closest("[data-player]");
+  if (card) {
+    const [team, num, ...rest] = card.dataset.player.split("|");
+    openPlayer(team, num, rest.join("|"));
+  }
+});
 
 // open from match cards and standings rows (event delegation)
 document.addEventListener("click", (e) => {
