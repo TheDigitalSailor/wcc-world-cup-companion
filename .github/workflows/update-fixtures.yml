@@ -1,12 +1,17 @@
-name: Update fixtures
+name: Update live data
 
 on:
   schedule:
-    - cron: "7 * * * *" # every hour at :07
+    - cron: "*/15 * * * *" # every 15 minutes
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# avoid two scheduled runs racing on the same push
+concurrency:
+  group: update-live
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -27,20 +32,24 @@ jobs:
           d = json.load(open("fixtures.json"))
           assert len(d) >= 100, f"feed looks broken: only {len(d)} matches"
           d.sort(key=lambda m: (m["DateUtc"], m["MatchNumber"]))
-          js = ("// FIFA World Cup 26 fixtures — auto-updated hourly by GitHub Actions\n"
+          js = ("// FIFA World Cup 26 fixtures — auto-updated by GitHub Actions\n"
                 "// source: fixturedownload.com/feed/json/fifa-world-cup-2026\n"
                 "const MATCHES = " + json.dumps(d, ensure_ascii=False, separators=(",", ":")) + ";\n")
           open("data.js", "w").write(js)
           EOF
 
-      - name: Update goalscorers
+      - name: Update tournament goalscorers
         run: python3 scripts/update_wcgoals.py
+
+      - name: Update per-match goalscorers
+        run: python3 scripts/update_matchgoals.py
 
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.js fixtures.json wcgoals.js
+          git add data.js fixtures.json wcgoals.js matchgoals.js
           git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "Update fixtures data"
+          git commit -m "Update live data"
+          git pull --rebase --autostash -q origin main || true
           git push

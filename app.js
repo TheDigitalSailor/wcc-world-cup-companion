@@ -40,6 +40,22 @@ const PT_FTA = { 1:"TVI", 17:"RTP", 23:"SIC", 26:"RTP", 33:"TVI", 47:"TVI", 61:"
 // Group-stage matches on LiveModeTV (YouTube) for PT viewers — derived from B24 schedule
 const PT_LIVEMODE = new Set([1,3,7,10,14,17,26,29,33,43,49,56]);
 
+// Approx FIFA ranking points (late 2025) — powers the WCC win-probability model
+const FIFA_RANK = {
+  "Argentina":1885,"Spain":1875,"France":1870,"England":1820,"Brazil":1775,
+  "Portugal":1770,"Netherlands":1760,"Belgium":1740,"Germany":1730,"Croatia":1715,
+  "Morocco":1700,"Colombia":1690,"Uruguay":1680,"Japan":1655,"USA":1660,
+  "Mexico":1650,"Switzerland":1640,"IR Iran":1630,"Senegal":1630,"Austria":1580,
+  "Türkiye":1560,"Sweden":1560,"Korea Republic":1575,"Ecuador":1570,"Canada":1535,
+  "Norway":1530,"Egypt":1515,"Tunisia":1505,"Algeria":1505,"Scotland":1500,
+  "Australia":1500,"Côte d'Ivoire":1490,"Paraguay":1480,"Ghana":1455,"Panama":1450,
+  "Qatar":1450,"Bosnia and Herzegovina":1450,"South Africa":1435,"Uzbekistan":1435,
+  "Saudi Arabia":1420,"Congo DR":1410,"Iraq":1400,"Jordan":1390,"Cabo Verde":1390,
+  "New Zealand":1325,"Curaçao":1320,"Haiti":1315
+};
+const HOSTS = new Set(["USA","Mexico","Canada"]);
+const WCgoals = (name) => (typeof WC_GOALS !== "undefined" && WC_GOALS[name]) || 0;
+
 const STAGE = { 4:"Round of 32", 5:"Round of 16", 6:"Quarter-final", 7:"Semi-final" };
 
 const $ = (s) => document.querySelector(s);
@@ -165,7 +181,7 @@ function matchCard({ m, p }, i) {
       ? `<span class="mc-score">·</span><span class="mc-status live">● Live now</span>`
       : `<span class="mc-time">${p.time}</span><span class="mc-status">Kick-off</span>`;
   return `
-  <article class="match-card ${isFavMatch(m) ? "fav" : ""}" style="animation-delay:${Math.min(i * 60, 360)}ms">
+  <article class="match-card ${isFavMatch(m) ? "fav" : ""}" data-match="${m.MatchNumber}" style="animation-delay:${Math.min(i * 60, 360)}ms">
     <div class="mc-top">${stageChip(m)}<span class="mc-venue">${m.Location.replace(" Stadium", "")}</span></div>
     <div class="mc-teams">
       <div class="team" ${FLAG[m.HomeTeam] ? `data-squad="${m.HomeTeam}"` : ""}>${flagHtml(m.HomeTeam)}<span class="t-name">${teamLabel(m.HomeTeam)}</span></div>
@@ -173,6 +189,7 @@ function matchCard({ m, p }, i) {
       <div class="team" ${FLAG[m.AwayTeam] ? `data-squad="${m.AwayTeam}"` : ""}>${flagHtml(m.AwayTeam)}<span class="t-name">${teamLabel(m.AwayTeam)}</span></div>
     </div>
     <div class="mc-watch">${watchChips(m)}</div>
+    <div class="mc-more">${played ? "Recap" : "Preview"} <span>›</span></div>
   </article>`;
 }
 
@@ -588,6 +605,242 @@ document.addEventListener("click", (e) => {
   if (t) openSquad(t.dataset.squad);
 });
 $("#squadBackdrop") && $("#squadBackdrop").addEventListener("click", closeSquad);
+
+/* ================= MATCH DETAIL SHEET ================= */
+
+const squadOf = (team) => (typeof SQUADS !== "undefined" && SQUADS[team]) || [];
+const findMatch = (num) => MATCHES.find(m => String(m.MatchNumber) === String(num));
+
+// WCC win-probability model — Elo-style from FIFA points, with a host bump
+function predict(home, away) {
+  const hp = (FIFA_RANK[home] || 1450) + (HOSTS.has(home) ? 60 : 0);
+  const ap = (FIFA_RANK[away] || 1450) + (HOSTS.has(away) ? 60 : 0);
+  const expH = 1 / (1 + Math.pow(10, (ap - hp) / 400)); // 0..1 expected result for home
+  const even = 1 - Math.abs(expH - 0.5) * 2;            // 1 when evenly matched
+  const pD = 0.22 + 0.10 * even;
+  const pH = (1 - pD) * expH, pA = (1 - pD) * (1 - expH);
+  let H = Math.round(pH * 100), D = Math.round(pD * 100);
+  let A = 100 - H - D;
+  return { H, D, A };
+}
+
+// played results for a team this tournament, oldest → newest
+function teamForm(team) {
+  const out = [];
+  for (const m of MATCHES) {
+    if (m.HomeTeamScore === null || m.AwayTeamScore === null) continue;
+    if (m.HomeTeam !== team && m.AwayTeam !== team) continue;
+    const home = m.HomeTeam === team;
+    const gf = home ? m.HomeTeamScore : m.AwayTeamScore;
+    const ga = home ? m.AwayTeamScore : m.HomeTeamScore;
+    out.push({ res: gf > ga ? "W" : gf < ga ? "L" : "D", gf, ga, opp: home ? m.AwayTeam : m.HomeTeam });
+  }
+  return out;
+}
+
+// pick the headline player for a side
+function keyPlayer(team) {
+  const sq = squadOf(team);
+  if (!sq.length) return null;
+  const scorers = sq.filter(p => WCgoals(p.name) > 0).sort((a, b) => WCgoals(b.name) - WCgoals(a.name));
+  if (scorers.length) { const p = scorers[0]; return { p, line: `${WCgoals(p.name)} goal${WCgoals(p.name) > 1 ? "s" : ""} this WC` }; }
+  const att = sq.filter(p => p.p === "FW" || p.p === "MF").sort((a, b) => b.g - a.g);
+  if (att.length && att[0].g > 0) return { p: att[0], line: `${att[0].g} national-team goals` };
+  const cap = [...sq].sort((a, b) => b.c - a.c)[0];
+  return { p: cap, line: `${cap.c} caps` };
+}
+
+function curiosities(m) {
+  const c = [];
+  const all = [...squadOf(m.HomeTeam).map(p => ({ ...p, team: m.HomeTeam })),
+               ...squadOf(m.AwayTeam).map(p => ({ ...p, team: m.AwayTeam }))];
+  if (all.length) {
+    const mc = all.reduce((a, b) => b.c > a.c ? b : a);
+    c.push(`${mc.name} (${mc.team}) is the most-capped player on show — ${mc.c} internationals.`);
+    const aged = all.filter(p => p.a);
+    if (aged.length) {
+      const yt = aged.reduce((a, b) => b.a < a.a ? b : a);
+      c.push(`Eye on the kid: ${yt.name} (${yt.team}) is only ${yt.a}.`);
+    }
+  }
+  const hot = all.filter(p => WCgoals(p.name) > 0).sort((a, b) => WCgoals(b.name) - WCgoals(a.name));
+  if (hot.length) c.push(`${hot[0].name} has already scored ${WCgoals(hot[0].name)}× at this World Cup.`);
+  return c.slice(0, 3);
+}
+
+function groupLine(m) {
+  if (!m.Group) return "";
+  const letter = m.Group.slice(-1);
+  const g = computeGroups().find(x => x.letter === letter);
+  if (!g) return "";
+  const pos = (t) => { const i = g.rows.findIndex(r => r.team === t); return i < 0 ? null : { i, r: g.rows[i] }; };
+  const h = pos(m.HomeTeam), a = pos(m.AwayTeam);
+  if (!h || !a || h.r.P + a.r.P === 0) return "";
+  const ord = (i) => ["1st", "2nd", "3rd", "4th"][i] || `${i + 1}th`;
+  return `${m.HomeTeam} sit ${ord(h.i)} (${h.r.Pts}pts) · ${m.AwayTeam} ${ord(a.i)} (${a.r.Pts}pts) in Group ${letter}.`;
+}
+
+function scorersHtml(m) {
+  const g = (typeof MATCH_GOALS !== "undefined" && MATCH_GOALS[m.MatchNumber]) || null;
+  if (!g || !g.length) {
+    return `<div class="ms-noscorers">Goalscorers appear here once the match report is published.</div>`;
+  }
+  const col = (arr) => arr.length
+    ? arr.map(x => `<div class="ms-goal">${x.n}${x.m ? `<i>${x.m}</i>` : ""}</div>`).join("")
+    : `<div class="ms-goal none">—</div>`;
+  return `<div class="ms-scorers">
+    <div class="ms-goalcol">${col(g.filter(x => x.t === "home"))}</div>
+    <div class="ms-ball">⚽</div>
+    <div class="ms-goalcol away">${col(g.filter(x => x.t === "away"))}</div>
+  </div>`;
+}
+
+function predictHtml(m) {
+  const { H, D, A } = predict(m.HomeTeam, m.AwayTeam);
+  return `
+    <div class="ms-block">
+      <div class="ms-h">Who's favoured <em>WCC model</em></div>
+      <div class="ms-pred">
+        <div class="ms-pred-bar">
+          <span class="pp pp-h" style="width:${H}%"></span>
+          <span class="pp pp-d" style="width:${D}%"></span>
+          <span class="pp pp-a" style="width:${A}%"></span>
+        </div>
+        <div class="ms-pred-key">
+          <span><b>${H}%</b> ${teamLabel(m.HomeTeam)}</span>
+          <span><b>${D}%</b> Draw</span>
+          <span><b>${A}%</b> ${teamLabel(m.AwayTeam)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function formHtml(m) {
+  const row = (team) => {
+    const f = teamForm(team);
+    if (!f.length) return "";
+    const chips = f.map(x => `<span class="form-chip f${x.res}" title="${x.res} ${x.gf}-${x.ga} v ${teamLabel(x.opp)}">${x.res}</span>`).join("");
+    return `<div class="ms-form-row"><img src="${flagUrl(team)}" alt=""><span>${teamLabel(team)}</span><span class="ms-form-chips">${chips}</span></div>`;
+  };
+  const rows = row(m.HomeTeam) + row(m.AwayTeam);
+  if (!rows) return "";
+  return `<div class="ms-block"><div class="ms-h">Form this tournament</div>${rows}</div>`;
+}
+
+function keyPlayersHtml(m) {
+  const card = (team) => {
+    const k = keyPlayer(team);
+    if (!k) return "";
+    return `<div class="ms-kp" style="--tc:${TEAM_COLOR[team] || "#15130E"}" data-player="${team}|${k.p.n}|${k.p.name}">
+      <div class="ms-kp-mono">${initials(k.p.name)}</div>
+      <div class="ms-kp-name">${k.p.name}</div>
+      <div class="ms-kp-line">${k.line}</div>
+      <img class="ms-kp-flag" src="${flagUrl(team)}" alt="">
+    </div>`;
+  };
+  const cards = card(m.HomeTeam) + card(m.AwayTeam);
+  if (!cards) return "";
+  return `<div class="ms-block"><div class="ms-h">Key players</div><div class="ms-kp-grid">${cards}</div></div>`;
+}
+
+function linksHtml(m) {
+  const q = encodeURIComponent(`${m.HomeTeam} vs ${m.AwayTeam} World Cup 2026`);
+  const yt = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${m.HomeTeam} ${m.AwayTeam} highlights World Cup 2026`)}`;
+  const news = `https://news.google.com/search?q=${q}`;
+  const fifa = `https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026`;
+  return `<div class="ms-links">
+    <a class="ms-link" href="${yt}" target="_blank" rel="noopener">▶ Highlights</a>
+    <a class="ms-link" href="${news}" target="_blank" rel="noopener">📰 News</a>
+    <a class="ms-link" href="${fifa}" target="_blank" rel="noopener">FIFA+</a>
+  </div>`;
+}
+
+function openMatch(num) {
+  const m = findMatch(num);
+  if (!m) return;
+  const p = parts(m.DateUtc, TZ[state.country]);
+  const played = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
+  const real = FLAG[m.HomeTeam] && FLAG[m.AwayTeam];
+  const now = Date.now();
+  const live = !played && real && now >= p.ts && now < p.ts + 2.1 * 3600e3;
+
+  const mid = played
+    ? `<span class="ms-score">${m.HomeTeamScore}–${m.AwayTeamScore}</span><span class="ms-state ft">Full time</span>`
+    : live
+      ? `<span class="ms-score">·</span><span class="ms-state live">● Live</span>`
+      : `<span class="ms-kick">${p.time}</span><span class="ms-state">${p.dow} ${p.dom} ${p.mon}</span>`;
+
+  const side = (team) => `
+    <div class="ms-side" ${FLAG[team] ? `data-squad="${team}"` : ""}>
+      ${flagHtml(team, "ms-flag")}
+      <span class="ms-team">${teamLabel(team)}</span>
+    </div>`;
+
+  let body = "";
+  if (!real) {
+    body = `<div class="ms-block"><div class="ms-noscorers">Teams to be confirmed — check back once the group stage and bracket take shape.</div></div>`;
+  } else if (played) {
+    body = `<div class="ms-block"><div class="ms-h">Goals</div>${scorersHtml(m)}</div>`
+      + keyPlayersHtml(m)
+      + (groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "")
+      + linksHtml(m);
+  } else {
+    const cur = curiosities(m);
+    body = predictHtml(m)
+      + formHtml(m)
+      + keyPlayersHtml(m)
+      + (groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "")
+      + (cur.length ? `<div class="ms-block"><div class="ms-h">Did you know</div><ul class="ms-cur">${cur.map(x => `<li>${x}</li>`).join("")}</ul></div>` : "")
+      + linksHtml(m);
+  }
+
+  $("#matchInner").innerHTML = `
+    <div class="squad-hero ms-hero">
+      <div class="squad-grab"></div>
+      <button class="squad-close" id="matchClose" aria-label="Close">✕</button>
+      <div class="ms-stage">${stageChip(m)}</div>
+      <div class="ms-fixture">
+        ${side(m.HomeTeam)}
+        <div class="ms-mid">${mid}</div>
+        ${side(m.AwayTeam)}
+      </div>
+      <div class="ms-venue">${m.Location} · ${watchChipsPlain(m)}</div>
+    </div>
+    <div class="ms-body">${body}</div>
+    <div class="squad-src">Preview &amp; model are generated by WCC from public data · Highlights &amp; news open official sources</div>`;
+
+  $("#matchBackdrop").hidden = false;
+  $("#matchSheet").hidden = false;
+  $("#matchSheet").scrollTop = 0;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    $("#matchBackdrop").classList.add("show");
+    $("#matchSheet").classList.add("show");
+  }));
+  $("#matchClose").addEventListener("click", closeMatch);
+}
+function closeMatch() {
+  $("#matchSheet").style.transform = "";
+  $("#matchBackdrop").classList.remove("show");
+  $("#matchSheet").classList.remove("show");
+  setTimeout(() => { $("#matchBackdrop").hidden = true; $("#matchSheet").hidden = true; }, 500);
+}
+// plain "watch on" text for the match hero (no markup wrapper)
+function watchChipsPlain(m) {
+  if (state.country === "NL") return "NPO 1 (free)";
+  const out = [];
+  const fta = PT_FTA[m.MatchNumber];
+  if (fta) out.push(fta);
+  if (m.HomeTeam === "Portugal" || m.AwayTeam === "Portugal" || m.RoundNumber >= 7 || PT_LIVEMODE.has(m.MatchNumber)) out.push("LiveModeTV");
+  out.push("Sport TV");
+  return out.join(" · ");
+}
+attachSwipeClose($("#matchSheet"), closeMatch);
+$("#matchBackdrop").addEventListener("click", closeMatch);
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-squad]") || e.target.closest("[data-player]") || e.target.closest("a")) return;
+  const card = e.target.closest("[data-match]");
+  if (card) openMatch(card.dataset.match);
+});
 
 /* ================= TABS ================= */
 

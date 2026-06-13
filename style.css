@@ -523,6 +523,113 @@ main{max-width:640px;margin:0 auto}
   box-shadow:0 4px 10px rgba(21,19,14,.18);
 }
 
+/* ---------- match detail sheet ---------- */
+.mc-more{
+  display:flex;align-items:center;justify-content:flex-end;gap:3px;
+  margin-top:10px;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.mc-more span{font-size:14px;line-height:1}
+.match-card{cursor:pointer}
+
+.ms-hero{padding-bottom:18px}
+.ms-stage{display:flex;justify-content:center;margin-bottom:16px}
+.ms-fixture{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.ms-side{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer}
+.ms-flag{width:58px;height:58px;border-radius:50%;box-shadow:0 0 0 3px var(--bg),0 8px 18px rgba(0,0,0,.4)}
+.ms-flag.ph{display:grid;place-items:center;background:#2c2920;color:var(--bg);font-family:"Anton",sans-serif}
+.ms-team{font-family:"Anton",sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:.4px;line-height:1.05;text-align:center}
+.ms-mid{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:84px}
+.ms-score{font-family:"Anton",sans-serif;font-size:38px;line-height:.9}
+.ms-kick{font-family:"Anton",sans-serif;font-size:26px;line-height:1}
+.ms-state{font-size:9px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;opacity:.6}
+.ms-state.ft{opacity:.75}
+.ms-state.live{color:#ff5247;opacity:1}
+.ms-venue{margin-top:16px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.55}
+
+.ms-body{padding:6px 16px 0}
+.ms-block{
+  background:var(--card);border-radius:18px;box-shadow:var(--shadow);
+  padding:14px 15px;margin-top:12px;
+}
+.ms-h{
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:"Anton",sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
+  margin-bottom:11px;
+}
+.ms-h em{
+  font-style:normal;font-family:"Archivo",sans-serif;font-size:8.5px;font-weight:800;letter-spacing:1px;
+  color:var(--ink-soft);background:#F3EEDF;border-radius:99px;padding:3px 8px;
+}
+.ms-note{font-size:12.5px;font-weight:600;line-height:1.45;color:var(--ink)}
+.ms-cur{list-style:none;display:flex;flex-direction:column;gap:9px}
+.ms-cur li{
+  position:relative;padding-left:18px;font-size:12.5px;font-weight:600;line-height:1.4;
+}
+.ms-cur li::before{content:"";position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:50%;background:var(--lime)}
+
+/* prediction bar */
+.ms-pred-bar{display:flex;height:14px;border-radius:99px;overflow:hidden;background:#EDE6D4}
+.ms-pred-bar .pp{height:100%}
+.pp-h{background:var(--blue)}
+.pp-d{background:#C9C0AC}
+.pp-a{background:var(--red)}
+.ms-pred-key{display:flex;justify-content:space-between;gap:6px;margin-top:9px;font-size:10.5px;font-weight:700;color:var(--ink-soft)}
+.ms-pred-key b{font-weight:800;color:var(--ink)}
+.ms-pred-key span:nth-child(1) b{color:var(--blue)}
+.ms-pred-key span:nth-child(3){text-align:right}
+.ms-pred-key span:nth-child(3) b{color:var(--red)}
+
+/* form */
+.ms-form-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.ms-form-row:first-of-type{margin-top:0}
+.ms-form-row>img{width:20px;height:20px;border-radius:50%}
+.ms-form-row>span:nth-child(2){font-size:12px;font-weight:800;flex:1}
+.ms-form-chips{display:flex;gap:4px}
+.form-chip{
+  width:20px;height:20px;border-radius:6px;display:grid;place-items:center;
+  font-size:10px;font-weight:800;color:#fff;
+}
+.form-chip.fW{background:var(--green)}
+.form-chip.fD{background:#C9C0AC;color:var(--ink)}
+.form-chip.fL{background:var(--red)}
+
+/* key players */
+.ms-kp-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ms-kp{
+  position:relative;background:#F3EEDF;border-radius:14px;padding:13px 10px 11px;text-align:center;
+  cursor:pointer;transition:transform .3s var(--spring);
+}
+.ms-kp:active{transform:scale(.95)}
+.ms-kp-mono{
+  width:46px;height:46px;border-radius:50%;margin:0 auto 8px;display:grid;place-items:center;
+  background:var(--ink);color:var(--bg);font-family:"Anton",sans-serif;font-size:16px;
+  box-shadow:0 0 0 2.5px #F3EEDF,0 0 0 5px var(--tc);
+}
+.ms-kp-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.2px;line-height:1.15}
+.ms-kp-line{font-size:9.5px;font-weight:700;color:var(--ink-soft);margin-top:3px}
+.ms-kp-flag{position:absolute;top:9px;right:9px;width:18px;height:18px;border-radius:50%}
+
+/* scorers */
+.ms-scorers{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:10px}
+.ms-ball{font-size:15px;opacity:.5;padding-top:1px}
+.ms-goalcol{display:flex;flex-direction:column;gap:6px}
+.ms-goalcol.away{text-align:right}
+.ms-goal{font-size:12px;font-weight:700}
+.ms-goal i{font-style:normal;color:var(--ink-soft);font-weight:600;margin-left:5px;font-size:11px}
+.ms-goal.none{color:var(--ink-soft);opacity:.6}
+.ms-noscorers{font-size:12px;font-weight:600;color:var(--ink-soft);line-height:1.45;text-align:center;padding:4px 0}
+
+/* links */
+.ms-links{display:flex;gap:8px;margin-top:12px}
+.ms-link{
+  flex:1;text-align:center;text-decoration:none;
+  background:var(--ink);color:var(--bg);border-radius:14px;padding:13px 6px;
+  font-size:12px;font-weight:800;letter-spacing:.3px;
+  transition:transform .3s var(--spring);
+}
+.ms-link:active{transform:scale(.94)}
+
 @media (min-width:480px){
   .pl-grid{grid-template-columns:repeat(4,1fr)}
   .team-grid{grid-template-columns:repeat(6,1fr)}
