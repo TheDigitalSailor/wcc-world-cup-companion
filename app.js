@@ -35,7 +35,10 @@ const TEAM_COLOR = {
 };
 
 // Portugal free-to-air confirmed matches (matchNumber -> channel)
-const PT_FTA = { 1:"TVI", 17:"RTP", 23:"SIC", 26:"RTP", 47:"TVI", 71:"RTP", 104:"RTP" };
+const PT_FTA = { 1:"TVI", 17:"RTP", 23:"SIC", 26:"RTP", 33:"TVI", 47:"TVI", 61:"TVI", 71:"RTP", 104:"RTP" };
+
+// Group-stage matches on LiveModeTV (YouTube) for PT viewers — derived from B24 schedule
+const PT_LIVEMODE = new Set([1,3,7,10,14,17,26,29,33,43,49,56]);
 
 const STAGE = { 4:"Round of 32", 5:"Round of 16", 6:"Quarter-final", 7:"Semi-final" };
 
@@ -125,7 +128,7 @@ function watchChips(m) {
     items = [];
     const fta = PT_FTA[m.MatchNumber];
     if (fta) items.push({ name: fta, free: true });
-    if (isPT || m.RoundNumber >= 7) items.push({ name: "LiveModeTV", free: true });
+    if (isPT || m.RoundNumber >= 7 || PT_LIVEMODE.has(m.MatchNumber)) items.push({ name: "LiveModeTV", free: true });
     items.push({ name: "Sport TV", free: false });
   }
   return `<span class="watch-label">Watch on</span>
@@ -548,7 +551,7 @@ function openPlayer(team, num, name) {
       </div>
       <div class="pm-stats">
         <div class="pm-stat"><b>${p.a ?? "–"}</b><span>Age</span></div>
-        <div class="pm-stat"><b>${p.c}</b><span>Caps</span></div>
+        <div class="pm-stat"><b>${p.c}</b><span>Matches</span></div>
         <div class="pm-stat"><b>${p.g}</b><span>NT goals</span></div>
         <div class="pm-stat ${wc ? "hot" : ""}"><b>${wc}</b><span>WC26 goals</span></div>
       </div>

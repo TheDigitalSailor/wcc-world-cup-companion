@@ -58,6 +58,15 @@ img{display:block}
 .brand-text h1{font-family:"Anton",sans-serif;font-size:24px;line-height:.95;text-transform:uppercase;letter-spacing:.5px}
 .brand-text p{font-size:11px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase;color:var(--ink-soft);margin-top:3px}
 
+/* segmented control wrapper */
+.seg-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.seg-caption{
+  display:flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.seg-caption svg{width:8px;height:10px;opacity:.7;flex-shrink:0}
+
 /* segmented control */
 .seg{
   position:relative;display:flex;background:#EDE6D4;border-radius:999px;padding:3px;

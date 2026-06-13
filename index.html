@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,10 +24,18 @@
       <p>World Cup Companion</p>
     </div>
   </div>
-  <div class="seg" id="countrySeg" role="tablist" aria-label="Where are you watching from?">
-    <div class="seg-thumb" id="segThumb"></div>
-    <button class="seg-btn" data-country="PT" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/pt.svg" alt=""> PT</button>
-    <button class="seg-btn" data-country="NL" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/nl.svg" alt=""> NL</button>
+  <div class="seg-wrap">
+    <span class="seg-caption">
+      <svg viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M7 0C4.24 0 2 2.24 2 5c0 3.75 5 11 5 11S12 8.75 12 5c0-2.76-2.24-5-5-5zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill="currentColor"/>
+      </svg>
+      Watching from
+    </span>
+    <div class="seg" id="countrySeg" role="tablist" aria-label="Where are you watching from?">
+      <div class="seg-thumb" id="segThumb"></div>
+      <button class="seg-btn" data-country="PT" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/pt.svg" alt=""> PT</button>
+      <button class="seg-btn" data-country="NL" role="tab"><img class="seg-flag" src="https://hatscripts.github.io/circle-flags/flags/nl.svg" alt=""> NL</button>
+    </div>
   </div>
 </header>
 
