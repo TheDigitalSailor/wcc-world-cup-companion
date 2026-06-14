@@ -544,7 +544,7 @@ main{max-width:640px;margin:0 auto}
 .ms-kick{font-family:"Anton",sans-serif;font-size:26px;line-height:1}
 .ms-state{font-size:9px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;opacity:.6}
 .ms-state.ft{opacity:.75}
-.ms-state.live{color:#ff5247;opacity:1}
+.ms-state.live{color:#ff5247;opacity:1;animation:blink 1.4s ease-in-out infinite}
 .ms-venue{margin-top:16px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.55}
 
 .ms-body{padding:6px 16px 0}

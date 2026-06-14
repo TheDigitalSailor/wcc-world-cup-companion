@@ -185,14 +185,25 @@ function renderStrip(days) {
   if (on) on.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
 }
 
-function matchCard({ m, p }, i) {
-  const played = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
+// shared status — Winner is the reliable full-time signal; scores can arrive live
+function matchStatus(m) {
+  const ts = new Date(m.DateUtc.replace(" ", "T")).getTime();
   const now = Date.now();
-  const live = !played && now >= p.ts && now < p.ts + 2.1 * 3600e3 && !m.Winner;
-  const mid = played
-    ? `<span class="mc-score">${m.HomeTeamScore}–${m.AwayTeamScore}</span><span class="mc-status ft">Full time</span>`
-    : live
-      ? `<span class="mc-score">·</span><span class="mc-status live">● Live now</span>`
+  const hasScore = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
+  const past = now >= ts + 2.5 * 3600e3;
+  const finished = !!m.Winner || (hasScore && past);
+  const live = !finished && now >= ts && !past;
+  return { ts, hasScore, finished, live };
+}
+const anyLiveNow = () => MATCHES.some(m => matchStatus(m).live);
+
+function matchCard({ m, p }, i) {
+  const { hasScore, finished, live } = matchStatus(m);
+  const score = `${m.HomeTeamScore}–${m.AwayTeamScore}`;
+  const mid = live
+    ? `<span class="mc-score">${hasScore ? score : "·"}</span><span class="mc-status live">● Live</span>`
+    : finished
+      ? `<span class="mc-score">${hasScore ? score : "—"}</span><span class="mc-status ft">Full time</span>`
       : `<span class="mc-time">${p.time}</span><span class="mc-status">Kick-off</span>`;
   return `
   <article class="match-card ${isFavMatch(m) ? "fav" : ""}" data-match="${m.MatchNumber}" style="animation-delay:${Math.min(i * 60, 360)}ms">
@@ -203,7 +214,7 @@ function matchCard({ m, p }, i) {
       <div class="team" ${FLAG[m.AwayTeam] ? `data-squad="${m.AwayTeam}"` : ""}>${flagHtml(m.AwayTeam)}<span class="t-name">${teamLabel(m.AwayTeam)}</span></div>
     </div>
     <div class="mc-watch">${watchChips(m)}</div>
-    <div class="mc-more">${played ? "Recap" : "Preview"} <span>›</span></div>
+    <div class="mc-more">${live ? "Live" : finished ? "Recap" : "Preview"} <span>›</span></div>
   </article>`;
 }
 
@@ -773,15 +784,14 @@ function openMatch(num) {
   const m = findMatch(num);
   if (!m) return;
   const p = parts(m.DateUtc, DEVICE_TZ);
-  const played = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
   const real = FLAG[m.HomeTeam] && FLAG[m.AwayTeam];
-  const now = Date.now();
-  const live = !played && real && now >= p.ts && now < p.ts + 2.1 * 3600e3;
+  const { hasScore, finished, live } = matchStatus(m);
+  const score = `${m.HomeTeamScore}–${m.AwayTeamScore}`;
 
-  const mid = played
-    ? `<span class="ms-score">${m.HomeTeamScore}–${m.AwayTeamScore}</span><span class="ms-state ft">Full time</span>`
-    : live
-      ? `<span class="ms-score">·</span><span class="ms-state live">● Live</span>`
+  const mid = live
+    ? `<span class="ms-score">${hasScore ? score : "·"}</span><span class="ms-state live">● Live</span>`
+    : finished
+      ? `<span class="ms-score">${hasScore ? score : "—"}</span><span class="ms-state ft">Full time</span>`
       : `<span class="ms-kick">${p.time}</span><span class="ms-state">${p.dow} ${p.dom} ${p.mon}</span>`;
 
   const side = (team) => `
@@ -793,7 +803,7 @@ function openMatch(num) {
   let body = "";
   if (!real) {
     body = `<div class="ms-block"><div class="ms-noscorers">Teams to be confirmed — check back once the group stage and bracket take shape.</div></div>`;
-  } else if (played) {
+  } else if (finished || live) {
     body = `<div class="ms-block"><div class="ms-h">Goals</div>${scorersHtml(m)}</div>`
       + keyPlayersHtml(m)
       + (groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "")
@@ -948,5 +958,15 @@ $("#clearFav").addEventListener("click", () => {
 });
 
 render();
-refreshScores();
-setInterval(refreshScores, 90e3);
+
+/* adaptive live polling — fast while a match is in play, relaxed otherwise,
+   and an instant refresh whenever the user returns to the tab */
+let scoreTimer = null;
+async function tick() {
+  clearTimeout(scoreTimer);
+  await refreshScores();
+  scoreTimer = setTimeout(tick, anyLiveNow() ? 20e3 : 120e3);
+}
+tick();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+window.addEventListener("focus", tick);
