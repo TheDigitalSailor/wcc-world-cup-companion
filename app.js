@@ -1,6 +1,20 @@
 /* ================= WC26 schedule app ================= */
 
-const TZ = { NL: "Europe/Amsterdam", PT: "Europe/Lisbon" };
+// Kickoff times always follow the viewer's real location — detected from the
+// device, no permission prompt. The PT/NL toggle only switches TV channels.
+const DEVICE_TZ = (() => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Lisbon"; }
+  catch { return "Europe/Lisbon"; }
+})();
+// Friendly label for the detected zone, e.g. "São Paulo (GMT-3)"
+function tzLabel() {
+  const city = DEVICE_TZ.split("/").pop().replace(/_/g, " ");
+  try {
+    const p = new Intl.DateTimeFormat("en-GB", { timeZone: DEVICE_TZ, timeZoneName: "shortOffset" })
+      .formatToParts(new Date()).find(x => x.type === "timeZoneName");
+    return p ? `${city} (${p.value})` : city;
+  } catch { return city; }
+}
 
 // team name -> ISO code for circle-flags
 const FLAG = {
@@ -70,7 +84,7 @@ function loadFavs() {
 }
 
 const state = {
-  country: localStorage.getItem("wc26-country") || "PT",
+  country: localStorage.getItem("wc26-country") || (DEVICE_TZ === "Europe/Amsterdam" ? "NL" : "PT"),
   favs: loadFavs(),
   day: null,           // "YYYY-MM-DD" in selected tz
   tab: "schedule",
@@ -96,11 +110,11 @@ function parts(dateUtc, tz) {
     ts: d.getTime(),
   };
 }
-const todayKey = () => parts(new Date().toISOString(), TZ[state.country]).key;
+const todayKey = () => parts(new Date().toISOString(), DEVICE_TZ).key;
 
 /* ---------- derived data ---------- */
 function matchDays() {
-  const tz = TZ[state.country];
+  const tz = DEVICE_TZ;
   const days = new Map();
   for (const m of MATCHES) {
     const p = parts(m.DateUtc, tz);
@@ -282,7 +296,7 @@ function renderStandings() {
 /* ================= BRACKET PAGE ================= */
 
 function bracketCard(m) {
-  const p = parts(m.DateUtc, TZ[state.country]);
+  const p = parts(m.DateUtc, DEVICE_TZ);
   const played = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
   const row = (team, score, winner) => `
     <div class="bk-row ${winner ? "win" : ""}">
@@ -758,7 +772,7 @@ function linksHtml(m) {
 function openMatch(num) {
   const m = findMatch(num);
   if (!m) return;
-  const p = parts(m.DateUtc, TZ[state.country]);
+  const p = parts(m.DateUtc, DEVICE_TZ);
   const played = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
   const real = FLAG[m.HomeTeam] && FLAG[m.AwayTeam];
   const now = Date.now();
@@ -866,8 +880,8 @@ function renderSeg() {
 
 function renderFoot() {
   $("#footNote").textContent = state.country === "NL"
-    ? "🇳🇱 In the Netherlands, NOS broadcasts all 104 matches free on NPO 1 / NPO Start. Times shown in Amsterdam time."
-    : "🇵🇹 Em Portugal, a Sport TV transmite os 104 jogos; 20 jogos em sinal aberto (RTP/SIC/TVI) e 34 grátis na LiveModeTV (YouTube), incluindo todos os jogos de Portugal, meias-finais e final. Horas de Lisboa.";
+    ? `🇳🇱 In the Netherlands, NOS broadcasts all 104 matches free on NPO 1 / NPO Start. Times shown in your local time — ${tzLabel()}.`
+    : `🇵🇹 Em Portugal, a Sport TV transmite os 104 jogos; 20 jogos em sinal aberto (RTP/SIC/TVI) e 34 grátis na LiveModeTV (YouTube), incluindo todos os jogos de Portugal, meias-finais e final. Horas no teu fuso local — ${tzLabel()}.`;
 }
 
 function render() {
