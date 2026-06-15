@@ -74,6 +74,10 @@ const STAGE = { 4:"Round of 32", 5:"Round of 16", 6:"Quarter-final", 7:"Semi-fin
 
 const $ = (s) => document.querySelector(s);
 
+// escape any externally-sourced string (feed/Wikipedia) before putting it in HTML
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 function loadFavs() {
   try {
     const v = JSON.parse(localStorage.getItem("wc26-favs"));
@@ -207,7 +211,7 @@ function matchCard({ m, p }, i) {
       : `<span class="mc-time">${p.time}</span><span class="mc-status">Kick-off</span>`;
   return `
   <article class="match-card ${isFavMatch(m) ? "fav" : ""}" data-match="${m.MatchNumber}" style="animation-delay:${Math.min(i * 60, 360)}ms">
-    <div class="mc-top">${stageChip(m)}<span class="mc-venue">${m.Location.replace(" Stadium", "")}</span></div>
+    <div class="mc-top">${stageChip(m)}<span class="mc-venue">${esc(m.Location.replace(" Stadium", ""))}</span></div>
     <div class="mc-teams">
       <div class="team" ${FLAG[m.HomeTeam] ? `data-squad="${m.HomeTeam}"` : ""}>${flagHtml(m.HomeTeam)}<span class="t-name">${teamLabel(m.HomeTeam)}</span></div>
       <div class="mc-mid">${mid}</div>
@@ -294,9 +298,9 @@ function renderStandings() {
       <div class="group-head"><span class="stage-chip g${g.letter}">Group ${g.letter}</span></div>
       <div class="g-row g-head-row"><span></span><span></span><span>P</span><span>+/-</span><span>Pts</span></div>
       ${g.rows.map((r, i) => `
-        <div class="g-row ${i < 2 ? "ql" : ""} ${isFavTeam(r.team) ? "favrow" : ""}" data-squad="${r.team}">
+        <div class="g-row ${i < 2 ? "ql" : ""} ${isFavTeam(r.team) ? "favrow" : ""}" data-squad="${esc(r.team)}">
           <span class="g-pos">${i + 1}</span>
-          <span class="g-team">${flagHtml(r.team, "g-flag")}<b>${r.team}</b>${isFavTeam(r.team) ? " ★" : ""}</span>
+          <span class="g-team">${flagHtml(r.team, "g-flag")}<b>${esc(r.team)}</b>${isFavTeam(r.team) ? " ★" : ""}</span>
           <span>${r.P}</span>
           <span>${r.GF - r.GA > 0 ? "+" : ""}${r.GF - r.GA}</span>
           <span class="g-pts">${r.Pts}</span>
@@ -319,7 +323,7 @@ function bracketCard(m) {
   <div class="bk-card ${isFavMatch(m) ? "fav" : ""}">
     ${row(m.HomeTeam, played ? m.HomeTeamScore : null, m.Winner && m.Winner === m.HomeTeam)}
     ${row(m.AwayTeam, played ? m.AwayTeamScore : null, m.Winner && m.Winner === m.AwayTeam)}
-    <div class="bk-meta">${p.dow} ${p.dom} ${p.mon} · ${played ? "FT" : p.time} · ${m.Location.replace(" Stadium", "")}</div>
+    <div class="bk-meta">${p.dow} ${p.dom} ${p.mon} · ${played ? "FT" : p.time} · ${esc(m.Location.replace(" Stadium", ""))}</div>
   </div>`;
 }
 
@@ -476,19 +480,36 @@ const initials = (name) => {
 
 function playerCard(p, i, team) {
   return `
-  <div class="pl-card" data-player="${team}|${p.n}|${p.name}" style="animation-delay:${Math.min(i * 30, 500)}ms">
-    <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${p.p}</span></div>
-    <div class="pl-photo"><span class="pl-mono">${initials(p.name)}</span></div>
-    <div class="pl-name">${p.name}</div>
+  <div class="pl-card" data-player="${esc(team)}|${p.n}|${esc(p.name)}" style="animation-delay:${Math.min(i * 30, 500)}ms">
+    <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${esc(p.p)}</span></div>
+    <div class="pl-photo"><span class="pl-mono">${esc(initials(p.name))}</span></div>
+    <div class="pl-name">${esc(p.name)}</div>
     <div class="pl-club">
-      ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${p.cc}.svg" alt="">` : ""}
-      <span>${p.club || "—"}</span>
+      ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${encodeURIComponent(p.cc)}.svg" alt="">` : ""}
+      <span>${esc(p.club || "—")}</span>
     </div>
     <div class="pl-meta">${p.a ?? "–"} yrs · ${p.c} caps${p.p !== "GK" ? ` · ${p.g} goals` : ""}</div>
   </div>`;
 }
 
-function openSquad(team) {
+// squads.js (~110KB) is loaded on demand the first time a squad/match sheet opens
+let squadsPromise = null;
+function ensureSquads() {
+  if (typeof SQUADS !== "undefined") return Promise.resolve();
+  if (!squadsPromise) {
+    squadsPromise = new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = "squads.js";
+      s.onload = () => resolve();
+      s.onerror = () => { squadsPromise = null; resolve(); };
+      document.head.appendChild(s);
+    });
+  }
+  return squadsPromise;
+}
+
+async function openSquad(team) {
+  await ensureSquads();
   const squad = typeof SQUADS !== "undefined" && SQUADS[team];
   if (!squad) return;
   let i = 0;
@@ -572,8 +593,9 @@ function traits(p) {
 
 const POS_FULL = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" };
 
-function openPlayer(team, num, name) {
-  const p = (SQUADS[team] || []).find(x => String(x.n) === String(num) && x.name === name);
+async function openPlayer(team, num, name) {
+  await ensureSquads();
+  const p = (typeof SQUADS !== "undefined" ? SQUADS[team] || [] : []).find(x => String(x.n) === String(num) && x.name === name);
   if (!p) return;
   const wc = (typeof WC_GOALS !== "undefined" && WC_GOALS[p.name]) || 0;
   const color = TEAM_COLOR[team] || "#15130E";
@@ -582,14 +604,14 @@ function openPlayer(team, num, name) {
       <button class="squad-close pm-close" id="playerClose" aria-label="Close">✕</button>
       <div class="pm-hero">
         <span class="pm-num">${p.n || "–"}</span>
-        <div class="pm-mono">${initials(p.name)}</div>
-        <img class="pm-team" src="${flagUrl(team)}" alt="${team}">
+        <div class="pm-mono">${esc(initials(p.name))}</div>
+        <img class="pm-team" src="${flagUrl(team)}" alt="${esc(team)}">
       </div>
-      <div class="pm-name">${p.name}</div>
-      <div class="pm-role">${POS_FULL[p.p]} · ${team}</div>
+      <div class="pm-name">${esc(p.name)}</div>
+      <div class="pm-role">${POS_FULL[p.p]} · ${esc(team)}</div>
       <div class="pm-club">
-        ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${p.cc}.svg" alt="">` : ""}
-        <span>${p.club || "Club unknown"}</span>
+        ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${encodeURIComponent(p.cc)}.svg" alt="">` : ""}
+        <span>${esc(p.club || "Club unknown")}</span>
       </div>
       <div class="pm-stats">
         <div class="pm-stat"><b>${p.a ?? "–"}</b><span>Age</span></div>
@@ -643,9 +665,11 @@ function predict(home, away) {
   const expH = 1 / (1 + Math.pow(10, (ap - hp) / 400)); // 0..1 expected result for home
   const even = 1 - Math.abs(expH - 0.5) * 2;            // 1 when evenly matched
   const pD = 0.22 + 0.10 * even;
-  const pH = (1 - pD) * expH, pA = (1 - pD) * (1 - expH);
+  const pH = (1 - pD) * expH;
+  // round home & draw, give the remainder to away, then clamp so none go negative
   let H = Math.round(pH * 100), D = Math.round(pD * 100);
-  let A = 100 - H - D;
+  if (H + D > 100) D = 100 - H;
+  const A = Math.max(0, 100 - H - D);
   return { H, D, A };
 }
 
@@ -702,7 +726,7 @@ function groupLine(m) {
   const h = pos(m.HomeTeam), a = pos(m.AwayTeam);
   if (!h || !a || h.r.P + a.r.P === 0) return "";
   const ord = (i) => ["1st", "2nd", "3rd", "4th"][i] || `${i + 1}th`;
-  return `${m.HomeTeam} sit ${ord(h.i)} (${h.r.Pts}pts) · ${m.AwayTeam} ${ord(a.i)} (${a.r.Pts}pts) in Group ${letter}.`;
+  return esc(`${m.HomeTeam} sit ${ord(h.i)} (${h.r.Pts}pts) · ${m.AwayTeam} ${ord(a.i)} (${a.r.Pts}pts) in Group ${letter}.`);
 }
 
 function scorersHtml(m) {
@@ -711,7 +735,7 @@ function scorersHtml(m) {
     return `<div class="ms-noscorers">Goalscorers appear here once the match report is published.</div>`;
   }
   const col = (arr) => arr.length
-    ? arr.map(x => `<div class="ms-goal">${x.n}${x.m ? `<i>${x.m}</i>` : ""}</div>`).join("")
+    ? arr.map(x => `<div class="ms-goal">${esc(x.n)}${x.m ? `<i>${esc(x.m)}</i>` : ""}</div>`).join("")
     : `<div class="ms-goal none">—</div>`;
   return `<div class="ms-scorers">
     <div class="ms-goalcol">${col(g.filter(x => x.t === "home"))}</div>
@@ -756,10 +780,10 @@ function keyPlayersHtml(m) {
   const card = (team) => {
     const k = keyPlayer(team);
     if (!k) return "";
-    return `<div class="ms-kp" style="--tc:${TEAM_COLOR[team] || "#15130E"}" data-player="${team}|${k.p.n}|${k.p.name}">
-      <div class="ms-kp-mono">${initials(k.p.name)}</div>
-      <div class="ms-kp-name">${k.p.name}</div>
-      <div class="ms-kp-line">${k.line}</div>
+    return `<div class="ms-kp" style="--tc:${TEAM_COLOR[team] || "#15130E"}" data-player="${esc(team)}|${k.p.n}|${esc(k.p.name)}">
+      <div class="ms-kp-mono">${esc(initials(k.p.name))}</div>
+      <div class="ms-kp-name">${esc(k.p.name)}</div>
+      <div class="ms-kp-line">${esc(k.line)}</div>
       <img class="ms-kp-flag" src="${flagUrl(team)}" alt="">
     </div>`;
   };
@@ -780,11 +804,12 @@ function linksHtml(m) {
   </div>`;
 }
 
-function openMatch(num) {
+async function openMatch(num) {
   const m = findMatch(num);
   if (!m) return;
   const p = parts(m.DateUtc, DEVICE_TZ);
   const real = FLAG[m.HomeTeam] && FLAG[m.AwayTeam];
+  if (real) await ensureSquads();
   const { hasScore, finished, live } = matchStatus(m);
   const score = `${m.HomeTeamScore}–${m.AwayTeamScore}`;
 
@@ -801,20 +826,23 @@ function openMatch(num) {
     </div>`;
 
   let body = "";
+  const groupBlock = groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "";
   if (!real) {
     body = `<div class="ms-block"><div class="ms-noscorers">Teams to be confirmed — check back once the group stage and bracket take shape.</div></div>`;
-  } else if (finished || live) {
+  } else if (finished) {
     body = `<div class="ms-block"><div class="ms-h">Goals</div>${scorersHtml(m)}</div>`
-      + keyPlayersHtml(m)
-      + (groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "")
-      + linksHtml(m);
+      + keyPlayersHtml(m) + groupBlock + linksHtml(m);
+  } else if (live) {
+    // live: show the running goals AND keep the win-probability + form on screen
+    body = `<div class="ms-block"><div class="ms-h">Goals</div>${scorersHtml(m)}</div>`
+      + predictHtml(m) + formHtml(m) + keyPlayersHtml(m) + groupBlock + linksHtml(m);
   } else {
     const cur = curiosities(m);
     body = predictHtml(m)
       + formHtml(m)
       + keyPlayersHtml(m)
-      + (groupLine(m) ? `<div class="ms-block"><div class="ms-h">Group picture</div><p class="ms-note">${groupLine(m)}</p></div>` : "")
-      + (cur.length ? `<div class="ms-block"><div class="ms-h">Did you know</div><ul class="ms-cur">${cur.map(x => `<li>${x}</li>`).join("")}</ul></div>` : "")
+      + groupBlock
+      + (cur.length ? `<div class="ms-block"><div class="ms-h">Did you know</div><ul class="ms-cur">${cur.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "")
       + linksHtml(m);
   }
 
@@ -828,7 +856,7 @@ function openMatch(num) {
         <div class="ms-mid">${mid}</div>
         ${side(m.AwayTeam)}
       </div>
-      <div class="ms-venue">${m.Location} · ${watchChipsPlain(m)}</div>
+      <div class="ms-venue">${esc(m.Location)} · ${watchChipsPlain(m)}</div>
     </div>
     <div class="ms-body">${body}</div>
     <div class="squad-src">Preview &amp; model are generated by WCC from public data · Highlights &amp; news open official sources</div>`;
@@ -918,11 +946,16 @@ function render() {
 
 /* ---------- live score refresh ---------- */
 async function refreshScores() {
-  const feed = "https://fixturedownload.com/feed/json/fifa-world-cup-2026";
-  const urls = [feed, "https://corsproxy.io/?url=" + encodeURIComponent(feed)];
+  // cache-bust so proxies never hand back a stale scoreline
+  const feed = `https://fixturedownload.com/feed/json/fifa-world-cup-2026?_=${Date.now()}`;
+  const urls = [
+    feed,
+    "https://corsproxy.io/?url=" + encodeURIComponent(feed),
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(feed),
+  ];
   for (const url of urls) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
       const fresh = await res.json();
       if (!Array.isArray(fresh) || !fresh.length) continue;
@@ -965,7 +998,7 @@ let scoreTimer = null;
 async function tick() {
   clearTimeout(scoreTimer);
   await refreshScores();
-  scoreTimer = setTimeout(tick, anyLiveNow() ? 20e3 : 120e3);
+  scoreTimer = setTimeout(tick, anyLiveNow() ? 12e3 : 120e3);
 }
 tick();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
