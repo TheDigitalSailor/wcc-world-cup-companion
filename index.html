@@ -22,9 +22,7 @@
 
 <header class="topbar">
   <div class="brand">
-    <div class="retro-badge">
-      <span class="retro-26">26</span>
-    </div>
+    <img class="brand-logo" src="icon.svg" alt="WCC" width="52" height="52">
     <div class="brand-text">
       <h1>WCC</h1>
       <p>World Cup Companion</p>
@@ -35,7 +33,7 @@
       <svg viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M7 0C4.24 0 2 2.24 2 5c0 3.75 5 11 5 11S12 8.75 12 5c0-2.76-2.24-5-5-5zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill="currentColor"/>
       </svg>
-      Where to watch
+      <span data-i18n="whereToWatch">Where to watch</span>
     </span>
     <div class="seg" id="countrySeg" role="tablist" aria-label="Where are you watching from?">
       <div class="seg-thumb" id="segThumb"></div>
@@ -69,14 +67,14 @@
   <!-- ============ STANDINGS ============ -->
   <section class="page" id="page-standings" hidden>
     <div class="page-pad">
-      <div class="page-head"><h2>Standings</h2><span class="day-count">12 groups</span></div>
+      <div class="page-head"><h2 data-i18n="standings">Standings</h2><span class="day-count" data-i18n="groupsCount">12 groups</span></div>
       <div class="groups" id="groupList"></div>
     </div>
   </section>
 
   <!-- ============ BRACKET ============ -->
   <section class="page" id="page-bracket" hidden>
-    <div class="page-head page-pad"><h2>Knockouts</h2><span class="day-count">Road to the final</span></div>
+    <div class="page-head page-pad"><h2 data-i18n="knockouts">Knockouts</h2><span class="day-count" data-i18n="roadToFinal">Road to the final</span></div>
     <div class="bracket" id="bracket"></div>
   </section>
 
@@ -84,8 +82,8 @@
   <section class="page" id="page-favs" hidden>
     <div class="page-pad">
       <div class="page-head">
-        <h2>Favourites</h2>
-        <button class="sheet-clear" id="clearFav">Clear all</button>
+        <h2 data-i18n="favourites">Favourites</h2>
+        <button class="sheet-clear" id="clearFav" data-i18n="clearAll">Clear all</button>
       </div>
       <p class="fav-hint" id="favHint"></p>
       <div class="team-grid" id="teamGrid"></div>
@@ -97,19 +95,19 @@
 <nav class="tabbar" id="tabbar">
   <button class="tab on" data-page="schedule">
     <svg viewBox="0 0 24 24"><rect x="3.2" y="4.5" width="17.6" height="16" rx="4"/><path d="M3.2 9.5h17.6M8 2.8v3.4M16 2.8v3.4" /></svg>
-    <span>Matches</span>
+    <span data-i18n="matches">Matches</span>
   </button>
   <button class="tab" data-page="standings">
     <svg viewBox="0 0 24 24"><path d="M9 20.5v-9.2a1.3 1.3 0 0 1 1.3-1.3h3.4a1.3 1.3 0 0 1 1.3 1.3v9.2M9 20.5H4.5a1.3 1.3 0 0 1-1.3-1.3v-3.4a1.3 1.3 0 0 1 1.3-1.3H9m6 6h4.5a1.3 1.3 0 0 0 1.3-1.3v-5.4a1.3 1.3 0 0 0-1.3-1.3H15m-3-6.7v-3" /></svg>
-    <span>Groups</span>
+    <span data-i18n="groups">Groups</span>
   </button>
   <button class="tab" data-page="bracket">
     <svg viewBox="0 0 24 24"><path d="M3.5 5h4.8v5H3.5zM3.5 14h4.8v5H3.5zM15.7 9.5h4.8v5h-4.8zM8.3 7.5h3.2v9H8.3zM11.5 12h4.2" /></svg>
-    <span>Bracket</span>
+    <span data-i18n="bracket">Bracket</span>
   </button>
   <button class="tab" data-page="favs">
     <svg viewBox="0 0 24 24"><path d="M12 3.6l2.5 5.1 5.6.8-4 4 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4-4 5.6-.8z"/></svg>
-    <span>Teams</span>
+    <span data-i18n="teams">Teams</span>
     <em class="tab-badge" id="favCount" hidden></em>
   </button>
 </nav>
