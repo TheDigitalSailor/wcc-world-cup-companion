@@ -193,7 +193,8 @@ function loadFavs() {
 }
 
 const state = {
-  country: localStorage.getItem("wc26-country") || (DEVICE_TZ === "Europe/Amsterdam" ? "NL" : "PT"),
+  // default by location (no saved choice): Portugal → PT, everywhere else → NL
+  country: localStorage.getItem("wc26-country") || (/Lisbon|Madeira|Azores/.test(DEVICE_TZ) ? "PT" : "NL"),
   favs: loadFavs(),
   day: null,           // "YYYY-MM-DD" in selected tz
   tab: "schedule",
