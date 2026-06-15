@@ -481,7 +481,7 @@ const initials = (name) => {
 function playerCard(p, i, team) {
   return `
   <div class="pl-card" data-player="${esc(team)}|${p.n}|${esc(p.name)}" style="animation-delay:${Math.min(i * 30, 500)}ms">
-    <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${esc(p.p)}</span></div>
+    <div class="pl-top"><span class="pl-num">${p.n || "–"}</span><span class="pl-pos">${esc(p.pos || p.p)}</span></div>
     <div class="pl-photo"><span class="pl-mono">${esc(initials(p.name))}</span></div>
     <div class="pl-name">${esc(p.name)}</div>
     <div class="pl-club">
@@ -591,7 +591,14 @@ function traits(p) {
   return [...new Set(t)].slice(0, 3);
 }
 
-const POS_FULL = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" };
+const POS_FULL = {
+  GK: "Goalkeeper", DF: "Defender", CB: "Centre-back", RB: "Right-back", LB: "Left-back",
+  FB: "Full-back", WB: "Wing-back", LWB: "Left wing-back", RWB: "Right wing-back", SW: "Sweeper",
+  MF: "Midfielder", CDM: "Defensive midfielder", CM: "Central midfielder", CAM: "Attacking midfielder",
+  LM: "Left midfielder", RM: "Right midfielder", WM: "Wide midfielder", DLP: "Deep-lying playmaker",
+  FW: "Forward", CF: "Centre-forward", ST: "Striker", SS: "Second striker",
+  W: "Winger", LW: "Left winger", RW: "Right winger", IF: "Inside forward",
+};
 
 async function openPlayer(team, num, name) {
   await ensureSquads();
@@ -608,7 +615,7 @@ async function openPlayer(team, num, name) {
         <img class="pm-team" src="${flagUrl(team)}" alt="${esc(team)}">
       </div>
       <div class="pm-name">${esc(p.name)}</div>
-      <div class="pm-role">${POS_FULL[p.p]} · ${esc(team)}</div>
+      <div class="pm-role">${POS_FULL[p.pos] || POS_FULL[p.p] || esc(p.pos)} · ${esc(team)}</div>
       <div class="pm-club">
         ${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${encodeURIComponent(p.cc)}.svg" alt="">` : ""}
         <span>${esc(p.club || "Club unknown")}</span>

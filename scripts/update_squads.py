@@ -8,12 +8,95 @@ nat-fs-player table row, and writes squads.js at the repo root.
 import json
 import re
 import sys
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date
 from pathlib import Path
 
 URL = "https://en.wikipedia.org/api/rest_v1/page/html/2026_FIFA_World_Cup_squads"
+MW_API = "https://en.wikipedia.org/w/api.php"
 ROOT = Path(__file__).resolve().parent.parent
+
+# infobox "position" text (lowercased, hyphens -> spaces) -> short abbreviation
+TEXT2ABBR = {
+    "goalkeeper": "GK", "sweeper": "SW",
+    "defender": "DF", "centre back": "CB", "center back": "CB", "central defender": "CB",
+    "full back": "FB", "left back": "LB", "right back": "RB",
+    "wing back": "WB", "left wing back": "LWB", "right wing back": "RWB",
+    "midfielder": "MF", "defensive midfielder": "CDM", "central midfielder": "CM",
+    "centre midfielder": "CM", "central midfield": "CM", "centre midfield": "CM",
+    "attacking midfielder": "CAM", "left midfielder": "LM", "right midfielder": "RM",
+    "wide midfielder": "WM", "box to box midfielder": "CM", "deep lying playmaker": "DLP",
+    "forward": "FW", "centre forward": "CF", "center forward": "CF", "striker": "ST",
+    "second striker": "SS", "winger": "W", "left winger": "LW", "right winger": "RW",
+    "inside forward": "IF",
+}
+
+
+def mw_get(params):
+    params = {**params, "format": "json", "formatversion": "2"}
+    url = MW_API + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "WCC-app/1.0 (https://github.com/TheDigitalSailor/wcc-world-cup-companion; squad positions)",
+    })
+    for attempt in range(5):
+        try:
+            return json.loads(urllib.request.urlopen(req, timeout=60).read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 4:
+                time.sleep(2 ** attempt * 2)  # 2,4,8,16s backoff
+                continue
+            raise
+
+
+def parse_infobox_position(wikitext):
+    m = re.search(r"\n\s*\|\s*position\s*=\s*([^\n]+)", wikitext, re.I)
+    if not m:
+        return None
+    val = m.group(1)
+    val = re.sub(r"<ref.*?(/>|</ref>)", "", val, flags=re.S | re.I)   # refs
+    val = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1", val)        # [[a|b]] -> b
+    val = re.sub(r"\{\{[^{}]*\}\}", "", val)                           # templates
+    val = re.sub(r"\(association football\)", "", val, flags=re.I)
+    val = val.replace("'''", "")
+    # first listed position when several are given
+    first = re.split(r"\s*(?:/|,|&|<br\s*/?>|\band\b|\bor\b)\s*", val.strip(), flags=re.I)[0]
+    return first.strip()
+
+
+def resolve_positions(titles):
+    """enwiki article titles -> detailed position abbreviation from the infobox."""
+    title2pos = {}
+    titles = sorted({t for t in titles if t})
+    for i in range(0, len(titles), 50):
+        batch = titles[i:i + 50]
+        time.sleep(0.5)  # be gentle with the API
+        try:
+            data = mw_get({"action": "query", "prop": "revisions", "rvprop": "content",
+                           "rvslots": "main", "titles": "|".join(batch)})
+        except Exception as e:
+            print(f"  positions batch failed: {e}", file=sys.stderr)
+            continue
+        query = data.get("query", {})
+        norm = {n["from"]: n["to"] for n in query.get("normalized", [])}
+        for pg in query.get("pages", []):
+            if pg.get("missing"):
+                continue
+            try:
+                wt = pg["revisions"][0]["slots"]["main"]["content"]
+            except (KeyError, IndexError):
+                continue
+            pos = parse_infobox_position(wt) or ""
+            ab = TEXT2ABBR.get(pos.lower().replace("-", " ").strip())
+            if ab:
+                title2pos[pg["title"]] = ab
+        # let callers look up by the title they requested, not just the normalised one
+        for frm, to in norm.items():
+            if to in title2pos:
+                title2pos[frm] = title2pos[to]
+    return title2pos
 
 WIKI2APP = {
     "Czech_Republic": "Czechia", "Mexico": "Mexico", "South_Africa": "South Africa",
@@ -86,6 +169,8 @@ def main():
             num = re.sub(r"<[^>]+>", "", cells[0]).strip()
             posm = re.search(r">(GK|DF|MF|FW)<", cells[1])
             namem = re.search(r'title="[^"]+"[^>]*>([^<]+)</a>', cells[2])
+            hrefm = re.search(r'href="\./([^"#]+)"', cells[2])
+            title = urllib.parse.unquote(hrefm.group(1)).replace("_", " ") if hrefm else None
             agem = re.search(r"aged?\s+(\d+)", cells[3])
             caps = re.sub(r"<[^>]+>", "", cells[4]).strip()
             goals = re.sub(r"<[^>]+>", "", cells[5]).strip()
@@ -109,9 +194,22 @@ def main():
                 "g": int(goals) if goals.isdigit() else 0,
                 "club": club,
                 "cc": cc,
+                "_title": title,
             })
         if players:
             squads[team] = players
+
+    # enrich with detailed positions (CB, CDM, RW…) from Wikidata, then drop helper field
+    all_titles = [p["_title"] for v in squads.values() for p in v if p.get("_title")]
+    title2pos = resolve_positions(all_titles)
+    n_detailed = 0
+    for v in squads.values():
+        for p in v:
+            ab = title2pos.get(p.pop("_title", None))
+            p["pos"] = ab or p["p"]
+            if ab:
+                n_detailed += 1
+    print(f"detailed positions resolved for {n_detailed}/{sum(len(v) for v in squads.values())} players")
 
     n_players = sum(len(v) for v in squads.values())
     assert len(squads) == 48, f"expected 48 squads, got {len(squads)}"
