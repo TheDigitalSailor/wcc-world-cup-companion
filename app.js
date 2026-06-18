@@ -1233,7 +1233,6 @@ function lineupCard(team, ep) {
   const club = p ? p.club : "";
   return `<div class="pl-card sm"${tap}>
     <div class="pl-top"><span class="pl-num">${esc(String(ep.num || "·"))}</span><span class="pl-pos">${esc(pos)}</span></div>
-    <div class="pl-photo"><span class="pl-mono">${esc(initials(name))}</span></div>
     <div class="pl-name">${esc(name)}</div>
     ${club ? `<div class="pl-club">${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${encodeURIComponent(p.cc)}.svg" alt="">` : ""}<span>${esc(club)}</span></div>` : ""}
   </div>`;
@@ -1254,9 +1253,8 @@ async function hydrateLineups(m) {
   const data = await fetchLineups(m);
   const el = $("#msLineups");
   if (!data || !el || el.dataset.match !== String(m.MatchNumber)) return; // closed or no data
-  el.innerHTML = `<div class="ms-h">${t("startingXI")}</div>
-    ${lineupTeam(m.HomeTeam, data.home)}
-    ${lineupTeam(m.AwayTeam, data.away)}`;
+  const parts = [lineupTeam(m.HomeTeam, data.home), lineupTeam(m.AwayTeam, data.away)].filter(Boolean);
+  el.innerHTML = `<div class="ms-h">${t("startingXI")}</div>` + parts.join(`<div class="xi-divider"></div>`);
   el.hidden = false;
 }
 

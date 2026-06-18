@@ -625,15 +625,14 @@ main{max-width:640px;margin:0 auto}
 .xi-team-head img{width:20px;height:20px;border-radius:50%}
 .xi-team-head b{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .xi-form{margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.6px;background:#F3EEDF;color:var(--ink-soft);border-radius:99px;padding:3px 9px;flex:0 0 auto}
+.xi-divider{border-top:1.5px dashed var(--line);margin:16px 0 0}
 .pl-grid.sm{grid-template-columns:repeat(4,1fr);gap:6px;padding:0}
-.pl-card.sm{padding:5px 5px 7px;box-shadow:2px 2px 0 var(--ink);border-width:1.5px}
-.pl-card.sm .pl-top{margin-bottom:4px}
-.pl-card.sm .pl-num{font-size:12px}
+.pl-card.sm{padding:6px 6px 8px;box-shadow:2px 2px 0 var(--ink);border-width:1.5px}
+.pl-card.sm .pl-top{margin-bottom:0}
+.pl-card.sm .pl-num{font-size:13px}
 .pl-card.sm .pl-pos{font-size:6.5px;padding:1px 5px;letter-spacing:.5px}
-.pl-card.sm .pl-photo{height:42px;margin-bottom:5px}
-.pl-card.sm .pl-mono{width:30px;height:30px;font-size:11px;box-shadow:0 0 0 2px var(--bg)}
-.pl-card.sm .pl-name{font-size:8.5px;min-height:18px;padding-top:4px;line-height:1.1}
-.pl-card.sm .pl-club{font-size:7.5px;margin-top:2px}
+.pl-card.sm .pl-name{font-size:9px;min-height:0;padding-top:6px;margin-top:5px;line-height:1.15;border-top-color:var(--line)}
+.pl-card.sm .pl-club{font-size:7.5px;margin-top:3px}
 .pl-card.sm .pl-club img{width:9px;height:9px}
 @media (max-width:419px){ .pl-grid.sm{grid-template-columns:repeat(3,1fr)} }
 
