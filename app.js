@@ -1223,16 +1223,29 @@ async function fetchLineups(m) {
   return res;
 }
 
-function lineupSide(team, side) {
+// a compact sticker card (same look as the squad page) for one line-up player;
+// matched to our squad by shirt number so it shows the club + opens player info on tap
+function lineupCard(team, ep) {
+  const p = squadOf(team).find(x => String(x.n) === String(ep.num)) || null;
+  const name = p ? p.name : ep.name;
+  const pos = ep.pos || (p && (p.pos || p.p)) || "";
+  const tap = p ? ` data-player="${esc(team)}|${p.n}|${esc(p.name)}"` : "";
+  const club = p ? p.club : "";
+  return `<div class="pl-card sm"${tap}>
+    <div class="pl-top"><span class="pl-num">${esc(String(ep.num || "·"))}</span><span class="pl-pos">${esc(pos)}</span></div>
+    <div class="pl-photo"><span class="pl-mono">${esc(initials(name))}</span></div>
+    <div class="pl-name">${esc(name)}</div>
+    ${club ? `<div class="pl-club">${p.cc ? `<img src="https://hatscripts.github.io/circle-flags/flags/${encodeURIComponent(p.cc)}.svg" alt="">` : ""}<span>${esc(club)}</span></div>` : ""}
+  </div>`;
+}
+
+function lineupTeam(team, side) {
   if (!side || !side.xi.length) return "";
-  const rows = side.xi.map(p =>
-    `<li><span class="xi-num">${esc(String(p.num || "·"))}</span><span class="xi-name">${esc(p.name)}</span><span class="xi-pos">${esc(p.pos)}</span></li>`
-  ).join("");
-  return `<div class="ms-xi-team">
+  return `<div class="xi-team-head">
       <img src="${flagUrl(team)}" alt=""><b>${teamLabel(team)}</b>
       ${side.formation ? `<span class="xi-form">${esc(side.formation)}</span>` : ""}
     </div>
-    <ol class="ms-xi-list">${rows}</ol>`;
+    <div class="pl-grid sm">${side.xi.map(ep => lineupCard(team, ep)).join("")}</div>`;
 }
 
 async function hydrateLineups(m) {
@@ -1242,10 +1255,8 @@ async function hydrateLineups(m) {
   const el = $("#msLineups");
   if (!data || !el || el.dataset.match !== String(m.MatchNumber)) return; // closed or no data
   el.innerHTML = `<div class="ms-h">${t("startingXI")}</div>
-    <div class="ms-xi">
-      <div class="ms-xi-col">${lineupSide(m.HomeTeam, data.home)}</div>
-      <div class="ms-xi-col">${lineupSide(m.AwayTeam, data.away)}</div>
-    </div>`;
+    ${lineupTeam(m.HomeTeam, data.home)}
+    ${lineupTeam(m.AwayTeam, data.away)}`;
   el.hidden = false;
 }
 
