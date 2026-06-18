@@ -299,23 +299,26 @@ function renderStrip(days) {
   if (on) on.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
 }
 
-// shared status — Winner is the reliable full-time signal; scores can arrive live
+// shared status — prefer ESPN's live state when we have it, else infer from time
 function matchStatus(m) {
   const ts = new Date(m.DateUtc.replace(" ", "T")).getTime();
   const now = Date.now();
   const hasScore = m.HomeTeamScore !== null && m.AwayTeamScore !== null;
+  if (m._st) { // live state from ESPN: "pre" | "in" | "post"
+    return { ts, hasScore, finished: m._st.state === "post", live: m._st.state === "in", clock: m._st.label };
+  }
   const past = now >= ts + 2.5 * 3600e3;
   const finished = !!m.Winner || (hasScore && past);
   const live = !finished && now >= ts && !past;
-  return { ts, hasScore, finished, live };
+  return { ts, hasScore, finished, live, clock: null };
 }
 const anyLiveNow = () => MATCHES.some(m => matchStatus(m).live);
 
 function matchCard({ m, p }, i) {
-  const { hasScore, finished, live } = matchStatus(m);
+  const { hasScore, finished, live, clock } = matchStatus(m);
   const score = `${m.HomeTeamScore}–${m.AwayTeamScore}`;
   const mid = live
-    ? `<span class="mc-score">${hasScore ? score : "·"}</span><span class="mc-status live">● ${t("live")}</span>`
+    ? `<span class="mc-score">${hasScore ? score : "·"}</span><span class="mc-status live">● ${esc(clock || t("live"))}</span>`
     : finished
       ? `<span class="mc-score">${hasScore ? score : "—"}</span><span class="mc-status ft">${t("fullTime")}</span>`
       : `<span class="mc-time">${p.time}</span><span class="mc-status">${t("kickoff")}</span>`;
@@ -931,11 +934,11 @@ async function openMatch(num) {
   const p = parts(m.DateUtc, DEVICE_TZ);
   const real = FLAG[m.HomeTeam] && FLAG[m.AwayTeam];
   if (real) await ensureSquads();
-  const { hasScore, finished, live } = matchStatus(m);
+  const { hasScore, finished, live, clock } = matchStatus(m);
   const score = `${m.HomeTeamScore}–${m.AwayTeamScore}`;
 
   const mid = live
-    ? `<span class="ms-score">${hasScore ? score : "·"}</span><span class="ms-state live">● ${t("live")}</span>`
+    ? `<span class="ms-score">${hasScore ? score : "·"}</span><span class="ms-state live">● ${esc(clock || t("live"))}</span>`
     : finished
       ? `<span class="ms-score">${hasScore ? score : "—"}</span><span class="ms-state ft">${t("fullTime")}</span>`
       : `<span class="ms-kick">${p.time}</span><span class="ms-state">${p.dow} ${p.dom} ${p.mon}</span>`;
@@ -1072,30 +1075,102 @@ function render() {
 }
 
 /* ---------- live score refresh ---------- */
-async function refreshScores() {
-  // cache-bust so proxies never hand back a stale scoreline
-  const feed = `https://fixturedownload.com/feed/json/fifa-world-cup-2026?_=${Date.now()}`;
+// fetch JSON through a direct → proxy fallback chain (handles CORS-blocked feeds)
+async function fetchJson(target) {
   const urls = [
-    feed,
-    "https://corsproxy.io/?url=" + encodeURIComponent(feed),
-    "https://api.allorigins.win/raw?url=" + encodeURIComponent(feed),
+    target,
+    "https://corsproxy.io/?url=" + encodeURIComponent(target),
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(target),
   ];
   for (const url of urls) {
     try {
       const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
-      const fresh = await res.json();
-      if (!Array.isArray(fresh) || !fresh.length) continue;
-      const byNum = new Map(fresh.map(m => [m.MatchNumber, m]));
-      let changed = false;
-      MATCHES.forEach((m, i) => {
-        const f = byNum.get(m.MatchNumber);
-        if (f && JSON.stringify(f) !== JSON.stringify(m)) { MATCHES[i] = f; changed = true; }
-      });
-      if (changed) render();
-      return;
+      const j = await res.json();
+      if (j) return j;
     } catch { /* try next source */ }
   }
+  return null;
+}
+
+// fixturedownload — full fixture list + scores (one request covers all 104 matches)
+async function refreshScores() {
+  const fresh = await fetchJson(`https://fixturedownload.com/feed/json/fifa-world-cup-2026?_=${Date.now()}`);
+  if (!Array.isArray(fresh) || !fresh.length) return false;
+  const byNum = new Map(fresh.map(m => [m.MatchNumber, m]));
+  let changed = false;
+  for (const m of MATCHES) {
+    const f = byNum.get(m.MatchNumber);
+    if (!f) continue;
+    if (f.HomeTeamScore !== m.HomeTeamScore || f.AwayTeamScore !== m.AwayTeamScore ||
+        f.Winner !== m.Winner || f.DateUtc !== m.DateUtc || f.HomeTeam !== m.HomeTeam || f.AwayTeam !== m.AwayTeam) {
+      Object.assign(m, f); // keep any live state (m._st) already attached
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// ESPN public scoreboard — live scores, match clock and goalscorers, no API key
+const ESPN2APP = {
+  "Bosnia-Herzegovina": "Bosnia and Herzegovina", "Cape Verde": "Cabo Verde", "Iran": "IR Iran",
+  "Ivory Coast": "Côte d'Ivoire", "South Korea": "Korea Republic", "United States": "USA",
+};
+const espnName = (n) => ESPN2APP[n] || n;
+
+async function refreshLive() {
+  const now = Date.now();
+  const dates = new Set();
+  for (const m of MATCHES) {
+    const ts = new Date(m.DateUtc.replace(" ", "T")).getTime();
+    if (Math.abs(ts - now) < 30 * 3600e3) {
+      const d = new Date(ts);
+      dates.add(`${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}`);
+    }
+  }
+  if (!dates.size) return false;
+  let changed = false;
+  for (const date of dates) {
+    const data = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${date}&_=${now}`);
+    for (const ev of (data && data.events) || []) {
+      const comp = ev.competitions && ev.competitions[0];
+      if (!comp) continue;
+      const cs = comp.competitors || [];
+      const H = cs.find(c => c.homeAway === "home"), A = cs.find(c => c.homeAway === "away");
+      if (!H || !A) continue;
+      const m = MATCHES.find(x => x.HomeTeam === espnName(H.team.displayName) && x.AwayTeam === espnName(A.team.displayName));
+      if (!m) continue;
+      const before = JSON.stringify([m.HomeTeamScore, m.AwayTeamScore, m._st, MATCH_GOALS[m.MatchNumber]]);
+      const st = ev.status && ev.status.type && ev.status.type.state; // pre | in | post
+      const detail = (ev.status && ev.status.type && ev.status.type.shortDetail) || "";
+      const hs = H.score != null && H.score !== "" ? parseInt(H.score, 10) : null;
+      const as = A.score != null && A.score !== "" ? parseInt(A.score, 10) : null;
+      if (st) {
+        if (st !== "pre" && hs != null && as != null) { m.HomeTeamScore = hs; m.AwayTeamScore = as; }
+        const label = /ht|halftime/i.test(detail) ? "HT" : ((ev.status && ev.status.displayClock) || t("live"));
+        m._st = { state: st, label };
+        if (st === "post" && !m.Winner && hs != null && as != null) {
+          m.Winner = hs > as ? m.HomeTeam : as > hs ? m.AwayTeam : "Draw";
+        }
+      }
+      // live goalscorers straight from ESPN (overrides the hourly Wikipedia data while live)
+      const goals = [];
+      for (const det of comp.details || []) {
+        if (!det.scoringPlay) continue;
+        const nm = det.athletesInvolved && det.athletesInvolved[0] && det.athletesInvolved[0].displayName;
+        if (!nm) continue;
+        const og = /own goal/i.test((det.type && det.type.text) || "");
+        goals.push({
+          n: nm + (og ? " (OG)" : ""),
+          t: det.team && det.team.id === H.team.id ? "home" : "away",
+          m: (det.clock && det.clock.displayValue) || "",
+        });
+      }
+      if (goals.length && typeof MATCH_GOALS !== "undefined") MATCH_GOALS[m.MatchNumber] = goals;
+      if (JSON.stringify([m.HomeTeamScore, m.AwayTeamScore, m._st, MATCH_GOALS[m.MatchNumber]]) !== before) changed = true;
+    }
+  }
+  return changed;
 }
 
 /* ---------- wire up ---------- */
@@ -1124,7 +1199,9 @@ render();
 let scoreTimer = null;
 async function tick() {
   clearTimeout(scoreTimer);
-  await refreshScores();
+  const a = await refreshScores();   // fixturedownload: full list
+  const b = await refreshLive();     // ESPN: live precision (clock, goals) — runs after so it wins
+  if (a || b) render();
   scoreTimer = setTimeout(tick, anyLiveNow() ? 12e3 : 120e3);
 }
 tick();
