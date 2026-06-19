@@ -1213,18 +1213,39 @@ async function fetchLineups(m) {
   const sum = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${eid}&_=${Date.now()}`);
   const ros = sum && sum.rosters;
   if (!ros || !ros.length) return null;
+
+  // during a LIVE match, swap in the players currently on the pitch (keeping each
+  // starter's slot). Finished/upcoming games just show the starting XI.
+  const live = !!(m._st && m._st.state === "in");
+  const replaced = {}; // outAthleteId -> inAthleteId (participants[0] = in, [1] = out)
+  if (live) for (const ev of (sum.keyEvents || [])) {
+    if (!ev.type || ev.type.type !== "substitution") continue;
+    const p = ev.participants || [];
+    if (p.length >= 2 && p[0].athlete && p[1].athlete) replaced[p[1].athlete.id] = p[0].athlete.id;
+  }
+
   const byTeam = {};
   for (const r of ros) {
-    const xi = (r.roster || []).filter(e => e.starter).map(e => ({
-      num: e.jersey || (e.athlete && e.athlete.jersey) || "",
-      name: (e.athlete && e.athlete.displayName) || "",
-      pos: (e.position && e.position.abbreviation) || "",
-    }));
+    const byId = {};
+    for (const e of (r.roster || [])) {
+      const id = e.athlete && e.athlete.id;
+      if (id) byId[id] = { num: e.jersey || (e.athlete.jersey) || "", name: e.athlete.displayName || "", id };
+    }
+    const xi = (r.roster || []).filter(e => e.starter).map(e => {
+      let id = e.athlete && e.athlete.id, hops = 0;
+      while (replaced[id] && hops++ < 6) id = replaced[id]; // follow the substitution chain
+      const cur = byId[id] || { num: e.jersey, name: e.athlete && e.athlete.displayName };
+      return {
+        num: cur.num, name: cur.name,
+        pos: (e.position && e.position.abbreviation) || "", // keep the starter's pitch position
+        sub: !!(e.athlete && id !== e.athlete.id),
+      };
+    });
     if (xi.length) byTeam[espnName(r.team && r.team.displayName)] = { formation: r.formation || "", xi };
   }
   const res = { home: byTeam[m.HomeTeam], away: byTeam[m.AwayTeam] };
   if (!res.home && !res.away) return null;
-  lineupCache[m.MatchNumber] = res;
+  if (m._st && m._st.state === "post") lineupCache[m.MatchNumber] = res; // only cache finished games
   return res;
 }
 
@@ -1297,26 +1318,30 @@ function lineupPitch(team, side) {
   const { gk, rows } = layout;
   const R = Math.max(rows.length, 1);
   const yFor = (b) => 0.90 * H - (b / R) * (0.90 * H - 0.13 * H);
-  const dot = (p, x, y, isGK, nameFont) => {
+  const CREAM = "#F6F1E5";
+  // one consistent label size for the whole pitch, sized to the busiest row
+  const maxN = Math.max(1, ...rows.map(r => r.length));
+  const nameFont = maxN >= 5 ? 8.5 : maxN >= 4 ? 9.5 : 10.5;
+  const dot = (p, x, y, isGK) => {
     const sq = squadOf(team).find(s => String(s.n) === String(p.num));
     const nm = sq ? sq.name : p.name;
     const tap = sq ? ` data-player="${esc(team)}|${sq.n}|${esc(sq.name)}"` : "";
+    x = +x.toFixed(0); y = +y.toFixed(0);
     return `<g class="pitch-pl"${tap}>
-      <circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${rad}" fill="${isGK ? "#FF3B2F" : "#15130E"}" stroke="#fff" stroke-width="2"/>
-      <text x="${x.toFixed(0)}" y="${y.toFixed(0)}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="#fff">${esc(cleanPos(p.pos))}</text>
-      <text x="${x.toFixed(0)}" y="${(y + rad + 11).toFixed(0)}" text-anchor="middle" font-size="${nameFont}" font-weight="800" fill="#fff">${esc(shortName(nm))}</text>
+      <circle cx="${x}" cy="${y}" r="${rad}" fill="${isGK ? "#FF3B2F" : "#15130E"}" stroke="${CREAM}" stroke-width="2"/>
+      ${p.sub ? `<circle cx="${(x + rad * 0.7).toFixed(0)}" cy="${(y - rad * 0.7).toFixed(0)}" r="4.5" fill="#8CD612" stroke="#15130E" stroke-width="1"/>` : ""}
+      <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="${CREAM}">${esc(cleanPos(p.pos))}</text>
+      <text x="${x}" y="${y + rad + 11}" text-anchor="middle" font-size="${nameFont}" font-weight="800" fill="${CREAM}">${esc(shortName(nm))}</text>
     </g>`;
   };
-  // shrink the name font as a row gets more crowded so long surnames don't collide
-  const nf = (n) => (n >= 5 ? 8 : n >= 4 ? 9.5 : 11);
-  let dots = dot(gk, W / 2, yFor(0), true, 11);
+  let dots = dot(gk, W / 2, yFor(0), true);
   rows.forEach((row, ri) => {
     const y = yFor(ri + 1), n = row.length;
-    row.forEach((p, i) => { dots += dot(p, W * (i + 1) / (n + 1), y, false, nf(n)); });
+    row.forEach((p, i) => { dots += dot(p, W * (i + 1) / (n + 1), y, false); });
   });
   const stripes = Array.from({ length: 8 }, (_, i) =>
-    `<rect x="0" y="${i * H / 8}" width="${W}" height="${H / 8}" fill="${i % 2 ? "#1a7340" : "#1c7d46"}"/>`).join("");
-  const mk = 'fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2"';
+    `<rect x="0" y="${i * H / 8}" width="${W}" height="${H / 8}" fill="${i % 2 ? "#1a7a45" : "#178040"}"/>`).join("");
+  const mk = `fill="none" stroke="${CREAM}" stroke-opacity=".28" stroke-width="2"`;
   return `<div class="xi-pitch-wrap">
     <div class="xi-pitch-title">${teamLabel(team)}${side.formation ? ` · ${esc(side.formation)}` : ""}</div>
     <svg class="pitch" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">

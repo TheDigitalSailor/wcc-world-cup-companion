@@ -628,7 +628,7 @@ main{max-width:640px;margin:0 auto}
 .xi-divider{border-top:1.5px dashed var(--line);margin:16px 0 0}
 .xi-pitch-wrap{margin-top:12px}
 .xi-pitch-title{text-align:center;font-family:"Manrope",sans-serif;font-weight:800;font-size:13px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:9px}
-.pitch{width:100%;height:auto;display:block;border-radius:14px;box-shadow:var(--shadow)}
+.pitch{width:100%;height:auto;display:block;border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
 .pitch-pl{cursor:pointer}
 .pitch-pl:active{opacity:.75}
 .pitch text{paint-order:stroke;stroke:rgba(21,19,14,.35);stroke-width:.6px}
