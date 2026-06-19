@@ -1285,10 +1285,6 @@ function posDepth(p) {            // 0 = GK … 5 = forward
   return 3;
 }
 const posSide = (p) => { const a = (p || "").toUpperCase(); return /(-L$)|^L/.test(a) ? -1 : /(-R$)|^R/.test(a) ? 1 : 0; };
-function cleanPos(p) {
-  const a = (p || "").toUpperCase().replace(/-[LRC]$/, "");
-  return ({ G: "GK", CD: "CB", F: "ST", CF: "ST", M: "CM" })[a] || a;
-}
 function shortName(name) {
   const w = (name || "").trim().split(/\s+/);
   if (w.length < 2) return name || "";
@@ -1330,7 +1326,7 @@ function lineupPitch(team, side) {
     return `<g class="pitch-pl"${tap}>
       <circle cx="${x}" cy="${y}" r="${rad}" fill="${isGK ? "#FF3B2F" : "#15130E"}" stroke="${CREAM}" stroke-width="2"/>
       ${p.sub ? `<circle cx="${(x + rad * 0.7).toFixed(0)}" cy="${(y - rad * 0.7).toFixed(0)}" r="4.5" fill="#8CD612" stroke="#15130E" stroke-width="1"/>` : ""}
-      <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="${CREAM}">${esc(cleanPos(p.pos))}</text>
+      <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="800" fill="${CREAM}">${esc(String(p.num || "·"))}</text>
       <text x="${x}" y="${y + rad + 11}" text-anchor="middle" font-size="${nameFont}" font-weight="800" fill="${CREAM}">${esc(shortName(nm))}</text>
     </g>`;
   };
@@ -1403,5 +1399,26 @@ async function tick() {
   scoreTimer = setTimeout(tick, anyLiveNow() ? 12e3 : 120e3);
 }
 tick();
-document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { tick(); checkForUpdate(); } });
 window.addEventListener("focus", tick);
+
+/* auto-update the installed (home-screen) app when a new version is deployed:
+   watch the code files' ETags and reload when one changes — no reinstall needed */
+const UPDATE_WATCH = ["app.js", "style.css", "index.html"];
+let _verTags = null;
+async function tagsNow() {
+  const out = {};
+  await Promise.all(UPDATE_WATCH.map(async (f) => {
+    try {
+      const r = await fetch(`${f}?v=${Date.now()}`, { method: "HEAD", cache: "no-store" });
+      out[f] = r.headers.get("etag") || r.headers.get("last-modified") || "";
+    } catch { out[f] = ""; }
+  }));
+  return out;
+}
+async function checkForUpdate() {
+  const now = await tagsNow();
+  if (!_verTags) { _verTags = now; return; }       // baseline on first run
+  if (UPDATE_WATCH.some(f => now[f] && _verTags[f] && now[f] !== _verTags[f])) location.reload();
+}
+checkForUpdate();
