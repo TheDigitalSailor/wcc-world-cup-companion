@@ -1082,18 +1082,23 @@ function render() {
 
 /* ---------- live score refresh ---------- */
 // fetch JSON through a direct → proxy fallback chain (handles CORS-blocked feeds)
+const FETCH_STRATS = [
+  (u) => u,                                                          // direct (works for ESPN: CORS *)
+  (u) => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+  (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+];
+const fetchStrat = {}; // host -> index of the strategy known to work (skips wasted attempts)
 async function fetchJson(target) {
-  const urls = [
-    target,
-    "https://corsproxy.io/?url=" + encodeURIComponent(target),
-    "https://api.allorigins.win/raw?url=" + encodeURIComponent(target),
-  ];
-  for (const url of urls) {
+  let host = "";
+  try { host = new URL(target).host; } catch { /* ignore */ }
+  const order = FETCH_STRATS.map((_, i) => i);
+  if (host in fetchStrat) { order.splice(order.indexOf(fetchStrat[host]), 1); order.unshift(fetchStrat[host]); }
+  for (const k of order) {
     try {
-      const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+      const res = await fetch(FETCH_STRATS[k](target), { cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
       const j = await res.json();
-      if (j) return j;
+      if (j) { fetchStrat[host] = k; return j; }
     } catch { /* try next source */ }
   }
   return null;
@@ -1108,11 +1113,11 @@ async function refreshScores() {
   for (const m of MATCHES) {
     const f = byNum.get(m.MatchNumber);
     if (!f) continue;
-    if (f.HomeTeamScore !== m.HomeTeamScore || f.AwayTeamScore !== m.AwayTeamScore ||
-        f.Winner !== m.Winner || f.DateUtc !== m.DateUtc || f.HomeTeam !== m.HomeTeam || f.AwayTeam !== m.AwayTeam) {
-      Object.assign(m, f); // keep any live state (m._st) already attached
-      changed = true;
-    }
+    const g = { ...f };
+    if (m._st) { delete g.HomeTeamScore; delete g.AwayTeamScore; delete g.Winner; } // ESPN owns live score
+    let diff = false;
+    for (const k of Object.keys(g)) { if (g[k] !== m[k]) diff = true; }
+    if (diff) { Object.assign(m, g); changed = true; }
   }
   return changed;
 }
@@ -1247,13 +1252,96 @@ function lineupTeam(team, side) {
     <div class="pl-grid sm">${side.xi.map(ep => lineupCard(team, ep)).join("")}</div>`;
 }
 
+/* ---- formation pitch ---- */
+function posDepth(p) {            // 0 = GK … 5 = forward
+  const a = (p || "").toUpperCase();
+  if (a === "G" || a === "GK") return 0;
+  if (a.includes("DM")) return 2;
+  if (/CB|CD|LB|RB|FB|WB|SW/.test(a)) return 1;
+  if (/AM|LW|RW|IF/.test(a) || a === "W") return 4;
+  if (/CM|LM|RM|WM/.test(a) || a === "M") return 3;
+  if (/CF|ST|LF|RF|SS/.test(a) || a === "F") return 5;
+  return 3;
+}
+const posSide = (p) => { const a = (p || "").toUpperCase(); return /(-L$)|^L/.test(a) ? -1 : /(-R$)|^R/.test(a) ? 1 : 0; };
+function cleanPos(p) {
+  const a = (p || "").toUpperCase().replace(/-[LRC]$/, "");
+  return ({ G: "GK", CD: "CB", F: "ST", CF: "ST", M: "CM" })[a] || a;
+}
+function shortName(name) {
+  const w = (name || "").trim().split(/\s+/);
+  if (w.length < 2) return name || "";
+  const prev = w[w.length - 2];
+  return /^(van|von|de|da|dos|du|del|della|di|el|al|le|la|den|der|ten|ter|bin|ben)$/i.test(prev)
+    ? `${prev} ${w[w.length - 1]}` : w[w.length - 1];
+}
+function pitchLayout(formation, xi) {
+  const gk = xi.find(p => posDepth(p.pos) === 0) || xi[0];
+  const out = xi.filter(p => p !== gk).sort((a, b) => posDepth(a.pos) - posDepth(b.pos));
+  const sizes = (formation || "").split("-").map(Number).filter(n => n > 0);
+  let rows = [];
+  if (sizes.reduce((s, n) => s + n, 0) === out.length) {
+    let i = 0; for (const n of sizes) { rows.push(out.slice(i, i + n)); i += n; }
+  } else {
+    const bands = {}; for (const p of out) (bands[posDepth(p.pos)] ||= []).push(p);
+    rows = Object.keys(bands).sort().map(k => bands[k]);
+  }
+  rows.forEach(r => r.sort((a, b) => posSide(a.pos) - posSide(b.pos)));
+  return { gk, rows };
+}
+function lineupPitch(team, side) {
+  if (!side || !side.xi.length) return "";
+  const W = 320, H = 440, rad = 17;
+  let layout;
+  try { layout = pitchLayout(side.formation, side.xi); } catch { return lineupTeam(team, side); }
+  const { gk, rows } = layout;
+  const R = Math.max(rows.length, 1);
+  const yFor = (b) => 0.90 * H - (b / R) * (0.90 * H - 0.13 * H);
+  const dot = (p, x, y, isGK, nameFont) => {
+    const sq = squadOf(team).find(s => String(s.n) === String(p.num));
+    const nm = sq ? sq.name : p.name;
+    const tap = sq ? ` data-player="${esc(team)}|${sq.n}|${esc(sq.name)}"` : "";
+    return `<g class="pitch-pl"${tap}>
+      <circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${rad}" fill="${isGK ? "#FF3B2F" : "#15130E"}" stroke="#fff" stroke-width="2"/>
+      <text x="${x.toFixed(0)}" y="${y.toFixed(0)}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="#fff">${esc(cleanPos(p.pos))}</text>
+      <text x="${x.toFixed(0)}" y="${(y + rad + 11).toFixed(0)}" text-anchor="middle" font-size="${nameFont}" font-weight="800" fill="#fff">${esc(shortName(nm))}</text>
+    </g>`;
+  };
+  // shrink the name font as a row gets more crowded so long surnames don't collide
+  const nf = (n) => (n >= 5 ? 8 : n >= 4 ? 9.5 : 11);
+  let dots = dot(gk, W / 2, yFor(0), true, 11);
+  rows.forEach((row, ri) => {
+    const y = yFor(ri + 1), n = row.length;
+    row.forEach((p, i) => { dots += dot(p, W * (i + 1) / (n + 1), y, false, nf(n)); });
+  });
+  const stripes = Array.from({ length: 8 }, (_, i) =>
+    `<rect x="0" y="${i * H / 8}" width="${W}" height="${H / 8}" fill="${i % 2 ? "#1a7340" : "#1c7d46"}"/>`).join("");
+  const mk = 'fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2"';
+  return `<div class="xi-pitch-wrap">
+    <div class="xi-pitch-title">${teamLabel(team)}${side.formation ? ` · ${esc(side.formation)}` : ""}</div>
+    <svg class="pitch" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      ${stripes}
+      <rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="4" ${mk}/>
+      <line x1="6" y1="${H / 2}" x2="${W - 6}" y2="${H / 2}" ${mk}/>
+      <circle cx="${W / 2}" cy="${H / 2}" r="40" ${mk}/>
+      <circle cx="${W / 2}" cy="${H / 2}" r="2" fill="#fff" fill-opacity=".4"/>
+      <rect x="${W / 2 - 70}" y="6" width="140" height="58" ${mk}/>
+      <rect x="${W / 2 - 34}" y="6" width="68" height="26" ${mk}/>
+      <rect x="${W / 2 - 70}" y="${H - 64}" width="140" height="58" ${mk}/>
+      <rect x="${W / 2 - 34}" y="${H - 32}" width="68" height="26" ${mk}/>
+      ${dots}
+    </svg>
+  </div>`;
+}
+
 async function hydrateLineups(m) {
   const host = $("#msLineups");
   if (!host || host.dataset.match !== String(m.MatchNumber)) return;
   const data = await fetchLineups(m);
   const el = $("#msLineups");
   if (!data || !el || el.dataset.match !== String(m.MatchNumber)) return; // closed or no data
-  const parts = [lineupTeam(m.HomeTeam, data.home), lineupTeam(m.AwayTeam, data.away)].filter(Boolean);
+  const render = (team, side) => { try { return lineupPitch(team, side); } catch { return lineupTeam(team, side); } };
+  const parts = [render(m.HomeTeam, data.home), render(m.AwayTeam, data.away)].filter(Boolean);
   el.innerHTML = `<div class="ms-h">${t("startingXI")}</div>` + parts.join(`<div class="xi-divider"></div>`);
   el.hidden = false;
 }
@@ -1284,9 +1372,9 @@ render();
 let scoreTimer = null;
 async function tick() {
   clearTimeout(scoreTimer);
-  const a = await refreshScores();   // fixturedownload: full list
-  const b = await refreshLive();     // ESPN: live precision (clock, goals) — runs after so it wins
-  if (a || b) render();
+  // ESPN first (direct fetch = fast) so live scores show ASAP, then fill the rest
+  if (await refreshLive()) render();
+  if (await refreshScores()) render();
   scoreTimer = setTimeout(tick, anyLiveNow() ? 12e3 : 120e3);
 }
 tick();

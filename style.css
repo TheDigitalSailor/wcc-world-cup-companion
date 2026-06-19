@@ -626,6 +626,12 @@ main{max-width:640px;margin:0 auto}
 .xi-team-head b{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .xi-form{margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.6px;background:#F3EEDF;color:var(--ink-soft);border-radius:99px;padding:3px 9px;flex:0 0 auto}
 .xi-divider{border-top:1.5px dashed var(--line);margin:16px 0 0}
+.xi-pitch-wrap{margin-top:12px}
+.xi-pitch-title{text-align:center;font-family:"Manrope",sans-serif;font-weight:800;font-size:13px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:9px}
+.pitch{width:100%;height:auto;display:block;border-radius:14px;box-shadow:var(--shadow)}
+.pitch-pl{cursor:pointer}
+.pitch-pl:active{opacity:.75}
+.pitch text{paint-order:stroke;stroke:rgba(21,19,14,.35);stroke-width:.6px}
 .pl-grid.sm{grid-template-columns:repeat(4,1fr);gap:6px;padding:0}
 .pl-card.sm{padding:6px 6px 8px;box-shadow:2px 2px 0 var(--ink);border-width:1.5px}
 .pl-card.sm .pl-top{margin-bottom:0}
