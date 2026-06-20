@@ -315,6 +315,8 @@ function matchStatus(m) {
   return { ts, hasScore, finished, live, clock: null };
 }
 const anyLiveNow = () => MATCHES.some(m => matchStatus(m).live);
+// live matches float to the top of a day's list, then chronological order
+const byLiveThenTime = (a, b) => (matchStatus(b.m).live - matchStatus(a.m).live) || (a.p.ts - b.p.ts);
 
 function matchCard({ m, p }, i) {
   const { hasScore, finished, live, clock } = matchStatus(m);
@@ -349,7 +351,7 @@ function renderDay(days) {
   $("#dayTitle").textContent = day.key === tk ? t("today") : day.long;
   const n = day.matches.length;
   $("#dayCount").textContent = t(n === 1 ? "matchN1" : "matchN", { n });
-  const sorted = [...day.matches].sort((a, b) => a.p.ts - b.p.ts);
+  const sorted = [...day.matches].sort(byLiveThenTime);
   $("#matchList").innerHTML = sorted.map(matchCard).join("");
 }
 
@@ -1422,3 +1424,49 @@ async function checkForUpdate() {
   if (UPDATE_WATCH.some(f => now[f] && _verTags[f] && now[f] !== _verTags[f])) location.reload();
 }
 checkForUpdate();
+
+/* ---------- pull-to-refresh (swipe down at the top to update results) ---------- */
+(function pullToRefresh() {
+  const el = $("#ptr");
+  if (!el) return;
+  const MAX = 72, TH = 56;
+  let startY = 0, startX = 0, dy = 0, pulling = false, refreshing = false;
+  const overlayOpen = () =>
+    !$("#squadSheet").hidden || !$("#matchSheet").hidden || !$("#playerModal").hidden;
+
+  addEventListener("touchstart", (e) => {
+    if (refreshing || overlayOpen() || window.scrollY > 0) { pulling = false; return; }
+    startY = e.touches[0].clientY; startX = e.touches[0].clientX; dy = 0; pulling = true;
+  }, { passive: true });
+
+  addEventListener("touchmove", (e) => {
+    if (!pulling || refreshing) return;
+    dy = e.touches[0].clientY - startY;
+    const dx = e.touches[0].clientX - startX;
+    if (dy <= 0 || Math.abs(dx) > Math.abs(dy) || window.scrollY > 0) { pulling = false; el.style.transform = ""; el.style.opacity = ""; return; }
+    if (e.cancelable) e.preventDefault();        // take over from native overscroll
+    const pull = Math.min(dy * 0.5, MAX);
+    el.style.transition = "none";
+    el.style.transform = `translateY(${pull - 46}px)`;
+    el.style.opacity = Math.min(pull / TH, 1);
+  }, { passive: false });
+
+  addEventListener("touchend", async () => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    el.style.transition = "";
+    if (Math.min(dy * 0.5, MAX) >= TH) {
+      refreshing = true;
+      el.classList.add("spinning");
+      el.style.transform = "translateY(10px)"; el.style.opacity = "1";
+      const t0 = Date.now();
+      try { await tick(); } catch { /* ignore */ }
+      await new Promise(r => setTimeout(r, Math.max(0, 500 - (Date.now() - t0)))); // let the spin be seen
+      el.classList.remove("spinning");
+      el.style.transform = ""; el.style.opacity = "0";
+      refreshing = false;
+    } else {
+      el.style.transform = ""; el.style.opacity = "0";
+    }
+  });
+})();
