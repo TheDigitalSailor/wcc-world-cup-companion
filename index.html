@@ -17,8 +17,33 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="WCC">
 <link rel="stylesheet" href="style.css">
+<script>try{if(sessionStorage.getItem("wcc-splash"))document.documentElement.classList.add("no-splash");}catch(e){}</script>
 </head>
 <body>
+
+<div class="splash" id="splash">
+  <div class="splash-mark">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="sg26" gradientUnits="userSpaceOnUse" x1="32" y1="19.5" x2="32" y2="37.5">
+          <stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="#fff"/>
+          <stop offset=".25" stop-color="#00A859"/><stop offset=".5" stop-color="#00A859"/>
+          <stop offset=".5" stop-color="#2A4FE4"/><stop offset=".75" stop-color="#2A4FE4"/>
+          <stop offset=".75" stop-color="#FF3B2F"/><stop offset="1" stop-color="#FF3B2F"/>
+        </linearGradient>
+      </defs>
+      <rect x="10" y="16" width="44" height="34" rx="13" fill="#00A859"/>
+      <rect x="10" y="14" width="44" height="34" rx="13" fill="#2A4FE4"/>
+      <rect x="10" y="12" width="44" height="34" rx="13" fill="#FF3B2F"/>
+      <rect x="10" y="10" width="44" height="34" rx="13" fill="#15130E"/>
+      <text x="32" y="28.5" font-family="'Arial Black',Impact,sans-serif" font-weight="900" font-size="25" letter-spacing="-1" text-anchor="middle" dominant-baseline="central" fill="url(#sg26)">26</text>
+    </svg>
+  </div>
+  <div class="splash-title">WCC</div>
+  <div class="splash-load"></div>
+  <div class="splash-word">World Cup Companion</div>
+  <div class="splash-credit">Designed by <a href="https://www.linkedin.com/in/pedro-nazario-ux/" target="_blank" rel="noopener">Pedro Nazário</a></div>
+</div>
 
 <div class="ptr" id="ptr" aria-hidden="true"><div class="ptr-spin"></div></div>
 
@@ -62,6 +87,8 @@
       <footer class="foot">
         <p id="footNote"></p>
         <p class="foot-credit">Fixtures &amp; live scores: fixturedownload.com · Flags: circle-flags</p>
+        <p class="foot-sign"><span data-i18n="designedBy">Designed by</span>
+          <a href="https://www.linkedin.com/in/pedro-nazario-ux/" target="_blank" rel="noopener">Pedro Nazário</a></p>
       </footer>
     </div>
   </section>

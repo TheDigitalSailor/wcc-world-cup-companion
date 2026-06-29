@@ -52,6 +52,49 @@ body{
 }
 .ptr.spinning .ptr-spin::after{animation:ptrspin .7s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
+
+/* ---------- opening splash ---------- */
+.splash{
+  position:fixed;inset:0;z-index:200;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  transition:transform .55s var(--spring),opacity .45s ease;
+}
+.splash.out{transform:translateY(-100%);opacity:0;pointer-events:none}
+.no-splash .splash{display:none}
+.splash-mark{width:92px;height:92px;animation:sp-pop .7s var(--spring) both}
+.splash-mark svg{width:100%;height:100%;filter:drop-shadow(0 12px 26px rgba(21,19,14,.22))}
+.splash-title{
+  font-family:"Manrope",sans-serif;font-weight:800;font-size:46px;line-height:1;
+  letter-spacing:1px;text-transform:uppercase;color:var(--ink);
+  animation:sp-up .55s var(--spring) .25s both;
+}
+.splash-load{
+  width:150px;height:8px;border-radius:99px;background:#EAE3D1;overflow:hidden;margin-top:2px;
+  animation:sp-up .5s var(--spring) .35s both;
+}
+.splash-load::after{
+  content:"";display:block;height:100%;border-radius:99px;transform-origin:left;
+  background:linear-gradient(90deg,var(--red),var(--blue),var(--green),var(--purple),var(--lime));
+  animation:sp-load 1.5s var(--spring) .4s both;
+}
+@keyframes sp-load{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+.splash-word{
+  font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--ink-soft);
+  animation:sp-up .5s var(--spring) .5s both;
+}
+.splash-credit{
+  position:absolute;bottom:calc(46px + env(safe-area-inset-bottom));
+  font-size:12.5px;font-weight:600;color:var(--ink-soft);
+  animation:sp-up .5s var(--spring) 1s both;
+}
+.splash-credit a{color:var(--ink);font-weight:800;text-decoration:none;border-bottom:2px solid var(--red);padding-bottom:1px}
+@keyframes sp-pop{0%{opacity:0;transform:scale(.5) rotate(-10deg)}60%{opacity:1}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes sp-up{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:none}}
+
+/* footer signature */
+.foot-sign{margin-top:7px;font-size:11.5px;font-weight:600;color:var(--ink-soft)}
+.foot-sign a{color:var(--ink);font-weight:800;text-decoration:none;border-bottom:2px solid var(--red);padding-bottom:1px}
+
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 [hidden]{display:none!important}
 img{display:block}
