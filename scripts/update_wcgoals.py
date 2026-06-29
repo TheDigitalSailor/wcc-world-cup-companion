@@ -5,8 +5,12 @@ Usage: python3 scripts/update_wcgoals.py
 Writes wcgoals.js mapping player name -> goals scored at this World Cup.
 Own goals are ignored. If the section is missing, writes an empty map.
 """
+import gzip
 import json
 import re
+import sys
+import time
+import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -15,9 +19,37 @@ URL = "https://en.wikipedia.org/api/rest_v1/page/html/2026_FIFA_World_Cup"
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def fetch(url):
+    """Fetch with gzip + backoff on rate limits; returns text or None on failure."""
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "WCC-app/1.0 (https://github.com/TheDigitalSailor/wcc-world-cup-companion; goals updater)",
+        "Accept-Encoding": "gzip",
+    })
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+                return raw.decode("utf-8")
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and attempt < 4:
+                time.sleep(2 ** attempt * 2)  # 2,4,8,16s
+                continue
+            print(f"warning: fetch failed ({e})", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"warning: fetch failed ({e})", file=sys.stderr)
+            return None
+    return None
+
+
 def main():
-    req = urllib.request.Request(URL, headers={"User-Agent": "WCC-app/1.0 (goals updater)"})
-    html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8")
+    html = fetch(URL)
+    if html is None:
+        # keep the existing wcgoals.js rather than failing the workflow
+        print("skipping wcgoals update (could not fetch); leaving existing file")
+        return
 
     goals = {}
     i = html.find('id="Goalscorers"')

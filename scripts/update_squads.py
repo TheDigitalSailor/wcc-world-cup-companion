@@ -150,7 +150,21 @@ C2ISO = {
 
 def main():
     req = urllib.request.Request(URL, headers={"User-Agent": "WCC-app/1.0 (squad updater)"})
-    html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8")
+    html = None
+    for attempt in range(5):
+        try:
+            html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8")
+            break
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and attempt < 4:
+                time.sleep(2 ** attempt * 2)
+                continue
+            break
+        except Exception:
+            break
+    if html is None:
+        print("skipping squads update (could not fetch); leaving existing file", file=sys.stderr)
+        return
 
     heads = [(m.start(), m.group(1)) for m in re.finditer(r'<h3 id="([^"]+)"', html)]
     squads = {}

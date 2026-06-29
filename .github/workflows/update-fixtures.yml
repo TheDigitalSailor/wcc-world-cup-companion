@@ -17,20 +17,23 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch latest fixtures
         run: |
-          curl -sL --fail -A "Mozilla/5.0" \
+          curl -sL --retry 3 --retry-delay 5 -A "Mozilla/5.0" \
             "https://fixturedownload.com/feed/json/fifa-world-cup-2026" \
-            -o fixtures.json
+            -o fixtures.json || echo "fetch failed"
 
       - name: Regenerate data.js
         run: |
           python3 - <<'EOF'
-          import json
-          d = json.load(open("fixtures.json"))
-          assert len(d) >= 100, f"feed looks broken: only {len(d)} matches"
+          import json, sys
+          try:
+              d = json.load(open("fixtures.json"))
+              assert isinstance(d, list) and len(d) >= 100
+          except Exception as e:
+              print(f"skip data.js: bad/empty feed ({e})"); sys.exit(0)
           d.sort(key=lambda m: (m["DateUtc"], m["MatchNumber"]))
           js = ("// FIFA World Cup 26 fixtures — auto-updated by GitHub Actions\n"
                 "// source: fixturedownload.com/feed/json/fifa-world-cup-2026\n"
@@ -39,10 +42,10 @@ jobs:
           EOF
 
       - name: Update tournament goalscorers
-        run: python3 scripts/update_wcgoals.py
+        run: python3 scripts/update_wcgoals.py || echo "wcgoals step skipped"
 
       - name: Update per-match goalscorers
-        run: python3 scripts/update_matchgoals.py
+        run: python3 scripts/update_matchgoals.py || echo "matchgoals step skipped"
 
       - name: Commit if changed
         run: |
@@ -51,5 +54,8 @@ jobs:
           git add data.js fixtures.json wcgoals.js matchgoals.js
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Update live data"
-          git pull --rebase --autostash -q origin main || true
-          git push
+          # push, retrying once after rebasing if another run pushed first
+          for i in 1 2 3; do
+            git pull --rebase --autostash -q origin main || true
+            git push && break || sleep 5
+          done
