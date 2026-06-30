@@ -235,6 +235,15 @@ main{max-width:640px;margin:0 auto}
   background:repeating-linear-gradient(135deg,#C9C2AF 0 6px,#BBB39E 6px 12px);
 }
 .team .t-name{font-weight:800;font-size:13px;line-height:1.15}
+/* penalty-shootout winner marker */
+.t-flag{position:relative;display:inline-flex;line-height:0}
+.adv-tick{
+  position:absolute;right:-3px;bottom:-3px;width:19px;height:19px;border-radius:50%;
+  background:var(--green);color:#fff;font-size:11px;font-weight:800;
+  display:grid;place-items:center;box-shadow:0 0 0 2.5px var(--card);
+}
+.team.won .flag,.ms-side.won .ms-flag{box-shadow:0 0 0 2.5px var(--card),0 0 0 4.5px var(--green),0 4px 10px rgba(21,19,14,.15)}
+.ms-side.won .adv-tick{box-shadow:0 0 0 2.5px var(--ink)}
 .mc-mid{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:84px}
 .mc-time{font-family:"Manrope",sans-serif;font-weight:800;font-size:24px;letter-spacing:.5px}
 .mc-score{font-family:"Manrope",sans-serif;font-weight:800;font-size:30px;letter-spacing:2px}
