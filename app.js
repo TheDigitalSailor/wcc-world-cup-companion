@@ -272,8 +272,8 @@ function watchChips(m) {
     items = [{ name: "NPO 1", free: true }, { name: "NOS app", free: true }];
   } else {
     items = [];
-    // confirmed group-stage free-to-air, plus knockouts/Portugal on public TV (RTP)
-    const fta = PT_FTA[m.MatchNumber] || (isPT || m.RoundNumber >= 4 ? "RTP" : null);
+    // confirmed group-stage free-to-air, plus Portugal's games and the semis/final/3rd on public TV
+    const fta = PT_FTA[m.MatchNumber] || (isPT || m.RoundNumber >= 7 ? "RTP" : null);
     if (fta) items.push({ name: fta, free: true });
     if (isPT || m.RoundNumber >= 7 || PT_LIVEMODE.has(m.MatchNumber)) items.push({ name: "LiveModeTV", free: true });
     items.push({ name: "Sport TV", free: false });
@@ -1026,7 +1026,7 @@ function watchChipsPlain(m) {
   if (state.country === "NL") return "NPO 1 (free)";
   const out = [];
   const isPT = m.HomeTeam === "Portugal" || m.AwayTeam === "Portugal";
-  const fta = PT_FTA[m.MatchNumber] || (isPT || m.RoundNumber >= 4 ? "RTP" : null);
+  const fta = PT_FTA[m.MatchNumber] || (isPT || m.RoundNumber >= 7 ? "RTP" : null);
   if (fta) out.push(fta);
   if (isPT || m.RoundNumber >= 7 || PT_LIVEMODE.has(m.MatchNumber)) out.push("LiveModeTV");
   out.push("Sport TV");
